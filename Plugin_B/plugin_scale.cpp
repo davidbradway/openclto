@@ -218,23 +218,27 @@ PLUGIN_API void  GetPluginInfo(PluginInfo* info)
 /// @param id An OpenCL device ID also for the program and kernels.
 /// @param path_to_kernel_file A char pointer to dll path
 /// </summary>
-PLUGIN_API int  InitializeCL( cl_context ctx, cl_device_id id, char* path_to_kernel_file )
+PLUGIN_API int  InitializeCL( cl_context ctx, cl_device_id id, char* path_to_module )
 {
 	//printf("start initialize. path: \t%s\n",path_to_kernel_file);
 	
 	// TODO: remove hard coding
 	// find where the path is set in the Parameter Explorer
-	//strncpy(path_to_kernel_file,".\\scale.cl\0",12);
+	//strncat(path_to_module,".\\scale.cl\0",12);
 
+	printf("Path to module: %s \n", path_to_module);
     int err = 0;
     glob.ctx = ctx;
     glob.device = id;
 	//Set path to OpenCL program file
 	memset(glob.srcOpenCL, 0, sizeof(glob.srcOpenCL));
-	if (0 > snprintf(glob.srcOpenCL,sizeof(glob.srcOpenCL),path_to_kernel_file)){
+	if (0 > snprintf(glob.srcOpenCL, sizeof(glob.srcOpenCL), "%s\\%s\0", path_to_module, "scale.cl")){
 		printf("Function: Initialize, Error in setting path\n");
         return - 1;
 	}
+
+	printf("OpenCL file: %s \n", glob.srcOpenCL);
+
 	// Step 06: Read kernel file
 	//Load content of OpenCL file
     if (!LoadOpenCLSrc())
@@ -263,18 +267,20 @@ PLUGIN_API int  InitializeCL( cl_context ctx, cl_device_id id, char* path_to_ker
         printf("%s\n", buffer);
         exit(1);
     }
-	//printf("After build\n");
+	printf("After build\n");
 
     // Step 09: Create OpenCL Kernels
 	// Create the compute kernel in the program we wish to run
     int glob_err = 0;
-	glob.split_kernel      = clCreateKernel(glob.prog, "split",           &err); glob_err |= err;
-	glob.vel_est_kernel    = clCreateKernel(glob.prog, "velocity_est",    &err); glob_err |= err;
-	glob.std_dev_kernel    = clCreateKernel(glob.prog, "std_dev",         &err); glob_err |= err;
-	glob.arctan_kernel     = clCreateKernel(glob.prog, "arctan",          &err); glob_err |= err;
-	glob.to_vel_est_kernel = clCreateKernel(glob.prog, "to_velocity_est", &err); glob_err |= err;
-	glob.to_arctan_kernel  = clCreateKernel(glob.prog, "to_arctan",       &err); glob_err |= err;
-	glob.maxabsval_kernel  = clCreateKernel(glob.prog, "maxabsval",       &err); glob_err |= err;
+	int step = 0;
+
+	glob.split_kernel      = clCreateKernel(glob.prog, "split",           &err); glob_err |= err; 
+	glob.vel_est_kernel    = clCreateKernel(glob.prog, "velocity_est",    &err); glob_err |= err; 
+	glob.std_dev_kernel    = clCreateKernel(glob.prog, "std_dev",         &err); glob_err |= err; 
+	glob.arctan_kernel     = clCreateKernel(glob.prog, "arctan",          &err); glob_err |= err; 
+	glob.to_vel_est_kernel = clCreateKernel(glob.prog, "to_velocity_est", &err); glob_err |= err; 
+	glob.to_arctan_kernel  = clCreateKernel(glob.prog, "to_arctan",       &err); glob_err |= err; 
+	glob.maxabsval_kernel  = clCreateKernel(glob.prog, "maxabsval",       &err); glob_err |= err; 
 	glob.maxabsval2_kernel = clCreateKernel(glob.prog, "maxabsval2",      &err); glob_err |= err;
 	glob.combine_kernel    = clCreateKernel(glob.prog, "combine",         &err); glob_err |= err;
     if (glob_err != CL_SUCCESS) return glob_err;
@@ -509,11 +515,11 @@ PLUGIN_API int  Prepare(void)
 PLUGIN_API int  GetOutBufSize(BuffSize* buf, int bufnum)
 {
 	//printf("outSize[%d].\n",bufnum);
-	glob.outSize[bufnum].sampleType = SAMPLE_FORMAT_INT16;
+	glob.outSize[bufnum].sampleType = SAMPLE_FORMAT_INT8;
 	//printf(" sampleType: %d\n",glob.outSize[bufnum].sampleType);
-	glob.outSize[bufnum].width  = glob.params.nlinesamples*glob.params.nlines; // Z and X estimates are in different outbufs
+	glob.outSize[bufnum].width  =glob.params.nlinesamples; // Z and X estimates are in different outbufs
 	//printf(" width:      %d\n",glob.outSize[bufnum].width);
-	glob.outSize[bufnum].height = 1;
+	glob.outSize[bufnum].height =  glob.params.nlines;
 	//printf(" height:     %d\n",glob.outSize[bufnum].height);
 	glob.outSize[bufnum].depth  = 1;
 	//printf(" depth: %d\n",glob.outSize[bufnum].depth);

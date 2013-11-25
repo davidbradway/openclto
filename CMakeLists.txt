@@ -30,6 +30,5 @@ set (LIBRARY_INSTALL_DIR "lib")
 set (INCLUDE_INSTALL_DIR "include")
 set (PLUGIN_INSTALL_DIR  "bin/plugins")
 
-add_subdirectory(Plugin_A)
 add_subdirectory(Plugin_B)
 add_subdirectory(TheApplication)
