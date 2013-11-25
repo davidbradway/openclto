@@ -1,0 +1,29 @@
+/// <summary> Structure containing scanner parameters </summary>
+typedef struct ParamStruct{
+	//Scanner parameters
+	int Nsamples; //Number of samples from one pulse
+	int emissions; //Number of emissions in same direction
+	int numb_avg; //Number of estimates to average over
+	int avg_offset;
+	int nlinesamples;
+	int data_size_out;
+
+	int lag_axial; // = 1; //
+	int lag_TO; // = 2; //
+	int lag_acq; // = 1; //bradway
+
+	float fs; //The sampling freqency. [Hz]
+	float f0; //The central frequency of the excitation. [Hz]
+	float c; //The speed of sound. [m/s]
+	float fprf; //Pulse repetition frequency [Hz]
+	float pi;
+	
+	float depth; // = 0.03; // 3cm focal depth
+	float lambda_X; //.0033 m
+	float lambda_Y; //.0037 m
+	
+	float scale; //To store computed value. [m/s]
+	float k_axial; //To store computed value. [m/s]
+	float k_X; //To store computed value. [m/s/sample]
+	float k_Y; //To store computed value. [m/s/sample]
+} ParamStruct;

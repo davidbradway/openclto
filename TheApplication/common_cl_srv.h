@@ -1,0 +1,2 @@
+#undef UNICODE
+#define DEFAULT_PORT "27015"
