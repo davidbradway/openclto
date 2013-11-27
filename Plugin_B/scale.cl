@@ -3,6 +3,47 @@
  *	axial and transverse dimensions
  */
 
+/** Kernel for splitting inbuf into intermediate buffers
+ *	@param inbuf - OpenCL buffer containing packed data
+ *	@param nlinesamples - integer Number of samples in each line (i.e. 1136)
+ *	@param inbufZ - OpenCL buffer containing packed real part of axial data
+ *	@param inbufLR - OpenCL buffer containing packed real part of Left beam
+ *	@param N - number of lines*emissions, i.e. memory blocks to split
+ */
+__kernel void split(__global int* inbuf,
+					   const  int nlinesamples,
+					__global float* real_inbufZ,
+					__global float* imag_inbufZ,
+					__global float* real_inbufZ2,
+					__global float* imag_inbufZ2,
+					__global float* real_inbufL,
+					__global float* imag_inbufL,
+					__global float* real_inbufR,
+					__global float* imag_inbufR,
+					 __const  int N) {
+	// unwrap single inbuf into 6 cl_mem buffers
+	// assume inbuf will have 'dimensions' in this order [real/imag, line samples, position (Z1/Z2/L/R), ..lines.., shots, frames]
+	// each axial line has interleaved I and Q (real and imaginary) parts of the samples
+	// the axial lines are then packed with interleaved Center, Center, Left and Right locations in chronological order of transmission
+	size_t local_size = get_local_size(0),  group_id =  get_group_id(0),
+		   local_id = get_local_id(0), global_id = get_global_id(0);
+	size_t i;
+	if (global_id < N) {
+		// in each thread, loop down samples.
+		// access the memory locations for IQ and CLR
+		for(i=0;i<nlinesamples;i++){
+			real_inbufZ[global_id*nlinesamples+i]  = convert_float(inbuf[global_id*(4*2*nlinesamples)+(0*2*nlinesamples) + 2*i + 0]);
+			imag_inbufZ[global_id*nlinesamples+i]  = convert_float(inbuf[global_id*(4*2*nlinesamples)+(0*2*nlinesamples) + 2*i + 1]);
+			real_inbufZ2[global_id*nlinesamples+i]  = convert_float(inbuf[global_id*(4*2*nlinesamples)+(1*2*nlinesamples) + 2*i + 0]);
+			imag_inbufZ2[global_id*nlinesamples+i]  = convert_float(inbuf[global_id*(4*2*nlinesamples)+(1*2*nlinesamples) + 2*i + 1]);
+			real_inbufL[global_id*nlinesamples+i] = convert_float(inbuf[global_id*(4*2*nlinesamples)+(2*2*nlinesamples) + 2*i + 0]);
+			imag_inbufL[global_id*nlinesamples+i] = convert_float(inbuf[global_id*(4*2*nlinesamples)+(2*2*nlinesamples) + 2*i + 1]);
+			real_inbufR[global_id*nlinesamples+i] = convert_float(inbuf[global_id*(4*2*nlinesamples)+(3*2*nlinesamples) + 2*i + 0]);
+			imag_inbufR[global_id*nlinesamples+i] = convert_float(inbuf[global_id*(4*2*nlinesamples)+(3*2*nlinesamples) + 2*i + 1]);
+		}
+	}
+}
+
 //Kernel for splitting inbuf into 6 intermediate buffers
 /** Kernel for splitting inbuf into 6 intermediate buffers
  *	@param inbuf - OpenCL buffer containing packed data
@@ -14,7 +55,6 @@
  *	@param real_inbufR - OpenCL buffer containing packed real part of Right beam
  *	@param imag_inbufR - OpenCL buffer containing packed imag part of Right beam
  *	@param N - number of lines*emissions, i.e. memory blocks to split
- */
 __kernel void split(__global float* inbuf,
 					  const  int nlinesamples,
 					__global float* real_inbufZ, // could be a float2
@@ -24,8 +64,6 @@ __kernel void split(__global float* inbuf,
 					__global float* real_inbufR,
 					__global float* imag_inbufR,
 					__const  int N) {
-/*					__global float2* inbufZ, // float2  */
-/*					__global float4* inbufLR, // float4	*/				
 	// unwrap single inbuf into 6 cl_mem buffers
 	// assume inbuf will have 'dimensions' in this order [real/imag, line samples, position (Z/L/R), ..lines..]
 	// each axial line has interleaved I and Q (real and imaginary) parts of the samples
@@ -43,17 +81,17 @@ __kernel void split(__global float* inbuf,
 			imag_inbufL[global_id*nlinesamples+i] = inbuf[global_id*(3*2*nlinesamples)+(1*2*nlinesamples) + 2*i + 1];
 			real_inbufR[global_id*nlinesamples+i] = inbuf[global_id*(3*2*nlinesamples)+(2*2*nlinesamples) + 2*i + 0];
 			imag_inbufR[global_id*nlinesamples+i] = inbuf[global_id*(3*2*nlinesamples)+(2*2*nlinesamples) + 2*i + 1];
-			/*inbufZ.x[global_id*nlinesamples+i] = inbuf[global_id*(3*2*nlinesamples)+(0*2*nlinesamples) + 2*i + 0];
-			inbufZ.y[global_id*nlinesamples+i] = inbuf[global_id*(3*2*nlinesamples)+(0*2*nlinesamples) + 2*i + 1];
-			inbufLR.x[global_id*nlinesamples+i] = inbuf[global_id*(3*2*nlinesamples)+(1*2*nlinesamples) + 2*i + 0];
-			inbufLR.y[global_id*nlinesamples+i] = inbuf[global_id*(3*2*nlinesamples)+(1*2*nlinesamples) + 2*i + 1];
-			inbufLR.z[global_id*nlinesamples+i] = inbuf[global_id*(3*2*nlinesamples)+(2*2*nlinesamples) + 2*i + 0];
-			inbufLR.w[global_id*nlinesamples+i] = inbuf[global_id*(3*2*nlinesamples)+(2*2*nlinesamples) + 2*i + 1];*/
+			//inbufZ.x[global_id*nlinesamples+i] = inbuf[global_id*(3*2*nlinesamples)+(0*2*nlinesamples) + 2*i + 0];
+			//inbufZ.y[global_id*nlinesamples+i] = inbuf[global_id*(3*2*nlinesamples)+(0*2*nlinesamples) + 2*i + 1];
+			//inbufLR.x[global_id*nlinesamples+i] = inbuf[global_id*(3*2*nlinesamples)+(1*2*nlinesamples) + 2*i + 0];
+			//inbufLR.y[global_id*nlinesamples+i] = inbuf[global_id*(3*2*nlinesamples)+(1*2*nlinesamples) + 2*i + 1];
+			//inbufLR.z[global_id*nlinesamples+i] = inbuf[global_id*(3*2*nlinesamples)+(2*2*nlinesamples) + 2*i + 0];
+			//inbufLR.w[global_id*nlinesamples+i] = inbuf[global_id*(3*2*nlinesamples)+(2*2*nlinesamples) + 2*i + 1];
 		}
 	}
 }
+ */
 
-//Kernel for calculating mean and standard deviation of array passed, returning only std deviation
 /** Kernel for calculating standard deviation of input array
  *	The standard deviation is calculated through mean and sumproduct
  *	@param data_re OpenCL buffer containing real data for standard deviation

@@ -21,9 +21,10 @@
 #include "Parameters.h"
 
 //CREATE MEMORY SPACE
-float data[6*DATA_SIZE_IN];
-signed char results0[DATA_SIZE_OUT];
-signed char results1[DATA_SIZE_OUT];
+//float data[6*DATA_SIZE_IN];
+int data[8*DATA_SIZE_IN];
+signed char resultsZ[DATA_SIZE_OUT];
+signed char resultsX[DATA_SIZE_OUT];
 
 PluginApi api;
 //char dllpath[4096];
@@ -120,17 +121,20 @@ void checkError(int err, char *detail){
 }
 
 /// <summary> New Load Data file, single file to single memory block </summary>
-int load_data_file(float* data, const char *filename){
+//int load_data_file(float* data, const char *filename){
+int load_data_file(int* data, const char *filename){
 	// Load simulated data from file
 	size_t datasize;
 	FILE *ptr_myfile=fopen(filename,"rb");
 	if (!ptr_myfile){ printf("Unable to open file!"); return -1; }
 	fseek(ptr_myfile, 0, SEEK_END);
-	datasize = ftell(ptr_myfile)/sizeof(float);
+	//datasize = ftell(ptr_myfile)/sizeof(float);
+	datasize = ftell(ptr_myfile)/sizeof(int);
 	rewind(ptr_myfile);
-	size_t count1 = fread(data,sizeof(float),datasize,ptr_myfile);
+	//size_t count1 = fread(data,sizeof(float),datasize,ptr_myfile);
+	size_t count1 = fread(data,sizeof(int),datasize,ptr_myfile);
 	fclose(ptr_myfile);
-	//printf("datasize = %d\n",datasize);
+	printf("datasize = %d\n",datasize);
 	if(count1 != datasize){
 		printf("Size mismatch!");
 		printf("count1 = %d\n",count1);
@@ -140,13 +144,13 @@ int load_data_file(float* data, const char *filename){
 }
 
 /// <summary> New Save OpenCL result to one file</summary>
-int save_data_file(signed char* out0, signed char* out1, size_t estimates, const char *filename){
+int save_data_file(signed char* outZ, signed char* outX, size_t estimates, const char *filename){
 	//printf("Save OpenCL result to file\n");
 	size_t count1;
 	FILE *ptr_myfile=fopen(filename,"wb");
 	if (!ptr_myfile){ printf("Unable to open file!"); return -1; }
-	count1 = fwrite(out0, sizeof(signed char), estimates, ptr_myfile);
-	count1 = fwrite(out1, sizeof(signed char), estimates, ptr_myfile);
+	count1 = fwrite(outZ, sizeof(signed char), estimates, ptr_myfile);
+	count1 = fwrite(outX, sizeof(signed char), estimates, ptr_myfile);
 	fclose(ptr_myfile);
 	//printf("%d estimates saved, data size out = %d\n",count1,estimates);
 	if(count1 != estimates){printf("Size mismatch!"); printf("count1 = %d, estimates = %d\n",count1,estimates); return -2; }
@@ -235,6 +239,27 @@ int main(int argc, char *argv[])
 	numFloatParams            = 6; //FloatParamCount;
 	*/
 	
+	/*
+	// Parameter values in JBOs ProFocus test dataset
+	intParams[ind_emissions]     = 32; //meas.CFM.N_emis
+	intParams[ind_nlines]        = 8;  //preview_image.no_lines/3
+	intParams[ind_nlinesamples]  = 1024; //size(samples,1)
+	intParams[ind_numb_avg]      = 1; // not sampled at 35 MHz... only 1024 samples for 6 cm... 8/meas.CFM.f0*sarus_sys.rcv_fs
+	intParams[ind_avg_offset]    = 1;
+	intParams[ind_lag_axial]     = 1;
+	intParams[ind_lag_TO]        = 2;
+	intParams[ind_lag_acq]       = 1;
+	numIntParams                 = 8; //IntParamCount;
+	
+	floatParams[ind_fs]	      = 35000000;
+	floatParams[ind_f0]       =  3000000;
+	floatParams[ind_c]        =     1482;
+	floatParams[ind_fprf]     =       98.6842;
+	floatParams[ind_depth]    = static_cast<float>(0.035);   // par.sys.depth for analysis
+	floatParams[ind_lambda_X] = static_cast<float>(0.0032); // transverse wavelength  par.TO.lambda_zx
+	numFloatParams            = 6; //FloatParamCount;
+	*/
+
 	/**/
 	// Parameter values in one file from MJPs test dataset
 	intParams[ind_emissions]     = 32;
@@ -287,7 +312,7 @@ int main(int argc, char *argv[])
 
 	// Step 05: Load the data from file
 	//printf("Loading Data\n");
-	const char  filename[] = "beamformed_flow_data_seq_no_3IQ.bin";
+	const char  filename[] = "beamformed_flow_data_seq_no_3IQint4beam.bin";
 	err = load_data_file(data,filename);
 	checkError(err,"load data file failed");
 
@@ -295,9 +320,8 @@ int main(int argc, char *argv[])
 	// PluginInfo tells us also if DLL uses OpenCL. We assume it does
     api.GetPluginInfo( &pluginInfo );   
 	// Define path to kernel source code file
-	char clKernelFilePath[] = ".\\plugins\\scale.cl";
-	//printf("%s\n",&clKernelFilePath);
-
+	char clKernelFilePath[] = ".\\plugins";
+	
 	// Step 07: Create Kernel program from the source
 	err = api.InitializeCL(context, device_id, clKernelFilePath);
 	checkError(err,"Failed initialization of CL");
@@ -308,11 +332,14 @@ int main(int argc, char *argv[])
 	int i;
 	for(i=0;i<numin;i++){
 		// Size of input Buffer
-		insize[i].sampleType = SAMPLE_FORMAT_FLOAT32;
-		insize[i].width      = 2*intParams[ind_nlinesamples]*3*intParams[ind_nlines]*intParams[ind_emissions]; // 6 = 2IQ * 3CRL
+		//insize[i].sampleType = SAMPLE_FORMAT_FLOAT32;
+		insize[i].sampleType = SAMPLE_FORMAT_INT16;
+		//insize[i].width      = 2*intParams[ind_nlinesamples]*3*intParams[ind_nlines]*intParams[ind_emissions]; // 6 = 2IQ * 3CLR
+		insize[i].width      = 2*intParams[ind_nlinesamples]*4*intParams[ind_nlines]*intParams[ind_emissions]; // 8 = 2IQ * 4CCLR
 		insize[i].height     = 1;
 		insize[i].depth      = 1;
-		insize[i].widthLen  = insize[i].width  * sizeof(float);
+		//insize[i].widthLen  = insize[i].width  * sizeof(float);
+		insize[i].widthLen  = insize[i].width  * sizeof(int);
 		insize[i].heightLen = insize[i].height * insize[i].widthLen;
 		insize[i].depthLen  = insize[i].depth  * insize[i].heightLen;
 		err |= api.SetInBufSize(&insize[i], i);
@@ -322,19 +349,21 @@ int main(int argc, char *argv[])
 	err |= api.Prepare();
 
 	for(i=0;i<numout;i++){
-		//printf("%d\n",i); // Size of output Buffer
+		printf("%d\n",i); // Size of output Buffer
 		err |= api.GetOutBufSize(&outsize[i], i);
 		// allocate buffer in host
 	}
 	checkError(err,"Failed CL preparation");
 	
-	if (outsize[0].depthLen != insize[0].depthLen/intParams[ind_emissions]/6/sizeof(float)*sizeof(signed char)) { 
+	//if (outsize[0].depthLen != insize[0].depthLen/intParams[ind_emissions]/6/sizeof(float)*sizeof(signed char)) { 
+	if (outsize[0].depthLen != insize[0].depthLen/intParams[ind_emissions]/8/sizeof(int)*sizeof(signed char)) { 
 		printf("Output size is not what is expected !!!! \n"); exit(1); 
 	}
  	
 	// Step 05: Create memory buffer objects
     // Create the input and output arrays in device memory for our calculation
-	inbuf[0] = clCreateBuffer(context, CL_MEM_READ_ONLY,  6*DATA_SIZE_IN*sizeof(float),NULL, &err); checkError(err,"Create buffer failed1");
+	//inbuf[0] = clCreateBuffer(context, CL_MEM_READ_ONLY,  6*DATA_SIZE_IN*sizeof(float),NULL, &err); checkError(err,"Create buffer failed1");
+	inbuf[0] = clCreateBuffer(context, CL_MEM_READ_ONLY,  8*DATA_SIZE_IN*sizeof(int),NULL, &err); checkError(err,"Create buffer failed1");
 	outbuf[0] = clCreateBuffer(context, CL_MEM_WRITE_ONLY,DATA_SIZE_OUT*sizeof(signed char), NULL, &err); checkError(err,"Create buffer failed3");
 	outbuf[1] = clCreateBuffer(context, CL_MEM_WRITE_ONLY, DATA_SIZE_OUT*sizeof(signed char), NULL, &err); checkError(err,"Create buffer failed4");
 
@@ -344,7 +373,8 @@ int main(int argc, char *argv[])
 	
 	// Step 05: Enqueue writing to the memory buffer
 	// Write data from CPU memory 'data' to GPU input memory buffer
-	err = clEnqueueWriteBuffer(commands, inbuf[0], CL_TRUE, 0, 6*DATA_SIZE_IN*sizeof(float), data, 0, NULL, &evHost1); checkError(err,"Failed to write to source memory 1!");
+	//err = clEnqueueWriteBuffer(commands, inbuf[0], CL_TRUE, 0, 6*DATA_SIZE_IN*sizeof(float), data, 0, NULL, &evHost1); checkError(err,"Failed to write to source memory 1!");
+	err = clEnqueueWriteBuffer(commands, inbuf[0], CL_TRUE, 0, 8*DATA_SIZE_IN*sizeof(int), data, 0, NULL, &evHost1); checkError(err,"Failed to write to source memory 1!");
 	
 	// Step 10: Set OpenCL kernel argument
 	// Step 11: Execute OpenCL kernel in data parallel
@@ -354,14 +384,14 @@ int main(int argc, char *argv[])
 		
 	// Step 12: Read (Transfer result) from the memory buffer
 	// Read back the results from the device 'output/outbuf' to the CPU memory 'results'
-	err = clEnqueueReadBuffer(commands, outbuf[0], CL_TRUE, 0, DATA_SIZE_OUT*sizeof(signed char), results0, 1, &evDLL, NULL); checkError(err,"Failed to read output array 2!");
-	err = clEnqueueReadBuffer(commands, outbuf[1], CL_TRUE, 0, DATA_SIZE_OUT*sizeof(signed char), results1, 1, &evDLL, NULL); checkError(err,"Failed to read output array 3!");
+	err = clEnqueueReadBuffer(commands, outbuf[0], CL_TRUE, 0, DATA_SIZE_OUT*sizeof(signed char), resultsZ, 1, &evDLL, NULL); checkError(err,"Failed to read output array 2!");
+	err = clEnqueueReadBuffer(commands, outbuf[1], CL_TRUE, 0, DATA_SIZE_OUT*sizeof(signed char), resultsX, 1, &evDLL, NULL); checkError(err,"Failed to read output array 3!");
 	
 	// Step 13: Free objects
     api.Cleanup();
 
 	//printf("Save the data to files!\n"); // Save the data to files!
-	const char  fileresults[] =  "results.bin"; err = save_data_file(results0,results1,DATA_SIZE_OUT, fileresults ); checkError(err,"save data file failed");
+	const char  fileresults[] =  "results.bin"; err = save_data_file(resultsZ,resultsX,DATA_SIZE_OUT, fileresults ); checkError(err,"save data file failed");
 
 	// Step 13: Free objects
     err = clReleaseCommandQueue(commands);checkError(err,"Failed release of command queue");

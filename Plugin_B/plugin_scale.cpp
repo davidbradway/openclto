@@ -31,6 +31,8 @@ static struct Glob{
 	// for split kernel
 	cl_mem real_inbufZ; //could pack as float2 inbufZ
 	cl_mem imag_inbufZ;
+	cl_mem real_inbufZ2; //could pack as float2 inbufZ
+	cl_mem imag_inbufZ2;
 	cl_mem real_inbufL; //could pack as float4 inbuf
 	cl_mem imag_inbufL;
 	cl_mem real_inbufR;
@@ -156,6 +158,8 @@ PLUGIN_API int  Cleanup(void)
 	// for split kernel
 	err |= clReleaseMemObject(glob.real_inbufZ); //could pack as float2
 	err |= clReleaseMemObject(glob.imag_inbufZ);
+	err |= clReleaseMemObject(glob.real_inbufZ2); //could pack as float2
+	err |= clReleaseMemObject(glob.imag_inbufZ2);
 	err |= clReleaseMemObject(glob.real_inbufL); //could pack as float4
 	err |= clReleaseMemObject(glob.imag_inbufL);
 	err |= clReleaseMemObject(glob.real_inbufR);
@@ -220,12 +224,6 @@ PLUGIN_API void  GetPluginInfo(PluginInfo* info)
 /// </summary>
 PLUGIN_API int  InitializeCL( cl_context ctx, cl_device_id id, char* path_to_module )
 {
-	//printf("start initialize. path: \t%s\n",path_to_kernel_file);
-	
-	// TODO: remove hard coding
-	// find where the path is set in the Parameter Explorer
-	//strncat(path_to_module,".\\scale.cl\0",12);
-
 	printf("Path to module: %s \n", path_to_module);
     int err = 0;
     glob.ctx = ctx;
@@ -295,7 +293,7 @@ PLUGIN_API int  InitializeCL( cl_context ctx, cl_device_id id, char* path_to_mod
 	glob.event6 = clCreateUserEvent(glob.ctx, &err); 
 	glob.event7 = clCreateUserEvent(glob.ctx, &err); 
 	glob.event8 = clCreateUserEvent(glob.ctx, &err); 
-	//printf("end initialize\n");
+	printf("end initialize\n");
 	return 0;
 }
 
@@ -314,7 +312,7 @@ PLUGIN_API int  Initialize( char* path_to_dll )
 /// </summary>
 PLUGIN_API int  SetParams(float* pfp, size_t nfp, int* pip, size_t nip)
 {
-	//printf("start set params\n");
+	printf("start set params\n");
 	// Set parameters in Global struct
 	glob.params.emissions    = pip[ind_emissions];
 	glob.params.nlines       = pip[ind_nlines];
@@ -331,7 +329,7 @@ PLUGIN_API int  SetParams(float* pfp, size_t nfp, int* pip, size_t nip)
 	glob.params.fprf         = pfp[ind_fprf];
 	glob.params.depth        = pfp[ind_depth];
 	glob.params.lambda_X     = pfp[ind_lambda_X];
-	//printf("end set params\n");
+	printf("end set params\n");
 	return 0;
 }
 
@@ -345,10 +343,11 @@ PLUGIN_API int  SetParams(float* pfp, size_t nfp, int* pip, size_t nip)
 /// </summary>
 PLUGIN_API int  SetInBufSize(BuffSize* buf, int bufnum)
 {
-	//printf("start set inbuf size\n");
-    if (buf->sampleType != SAMPLE_FORMAT_FLOAT32) return -1;
+	printf("start set inbuf size\n");
+    //if (buf->sampleType != SAMPLE_FORMAT_FLOAT32) return -1;
+    if (buf->sampleType != SAMPLE_FORMAT_INT16) return -1;
     glob.inSize[bufnum]  = *buf;
-	//printf("end set inbuf size\n");
+	printf("end set inbuf size\n");
 	return 0;
 }
 
@@ -413,6 +412,8 @@ PLUGIN_API int  Prepare(void)
 	// Buffer memory checking and handling for split kernel
 	if (glob.real_inbufZ != 0) { clReleaseMemObject(glob.real_inbufZ); glob.real_inbufZ  = 0; } //could pack as float2
 	if (glob.imag_inbufZ != 0) { clReleaseMemObject(glob.imag_inbufZ); glob.imag_inbufZ  = 0; }
+	if (glob.real_inbufZ2 != 0) { clReleaseMemObject(glob.real_inbufZ2); glob.real_inbufZ2  = 0; } //could pack as float2
+	if (glob.imag_inbufZ2 != 0) { clReleaseMemObject(glob.imag_inbufZ2); glob.imag_inbufZ2  = 0; }
 	if (glob.real_inbufR != 0) { clReleaseMemObject(glob.real_inbufR); glob.real_inbufR = 0; } //could pack as float4
 	if (glob.imag_inbufR != 0) { clReleaseMemObject(glob.imag_inbufR); glob.imag_inbufR = 0; }
 	if (glob.real_inbufL != 0) { clReleaseMemObject(glob.real_inbufL); glob.real_inbufL = 0; }
@@ -443,13 +444,15 @@ PLUGIN_API int  Prepare(void)
 
 	// Buffer memory checking and handling for combine kernel
 	if (glob.outbufZ != 0) { clReleaseMemObject(glob.outbufZ);  glob.outbufZ = 0; }
-	if (glob.outbufZX!= 0) { clReleaseMemObject(glob.outbufZX); glob.outbufZX= 0; }
+	if (glob.outbufZX!= 0) { clReleaseMemObject(glob.outbufZX); glob.outbufZX= 0; } //don't care?
 	if (glob.outbufX != 0) { clReleaseMemObject(glob.outbufX);  glob.outbufX = 0; }
 
 	// Step 05: Create memory buffer objects
 	// Buffer creation for split kernel
 	glob.real_inbufZ = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.params.nlinesamples*glob.params.nlines*glob.params.emissions*sizeof(float), NULL, &err);  //could pack as float2
 	glob.imag_inbufZ = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.params.nlinesamples*glob.params.nlines*glob.params.emissions*sizeof(float), NULL, &err); 
+	glob.real_inbufZ2 = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.params.nlinesamples*glob.params.nlines*glob.params.emissions*sizeof(float), NULL, &err);  //could pack as float2
+	glob.imag_inbufZ2 = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.params.nlinesamples*glob.params.nlines*glob.params.emissions*sizeof(float), NULL, &err); 
 	glob.real_inbufL = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.params.nlinesamples*glob.params.nlines*glob.params.emissions*sizeof(float), NULL, &err);  //could pack as float4
 	glob.imag_inbufL = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.params.nlinesamples*glob.params.nlines*glob.params.emissions*sizeof(float), NULL, &err); 
 	glob.real_inbufR = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.params.nlinesamples*glob.params.nlines*glob.params.emissions*sizeof(float), NULL, &err); 
@@ -489,20 +492,20 @@ PLUGIN_API int  Prepare(void)
 	err |= clSetKernelArg(glob.std_dev_kernel,    6, sizeof(int),   &glob.params.emissions);    
 	
 	err |= clSetKernelArg(glob.vel_est_kernel,    4, sizeof(int),   &glob.params.emissions);   
-	err |= clSetKernelArg(glob.vel_est_kernel,    5, sizeof(int),   &Nsamples);     // derived parameter
+	err |= clSetKernelArg(glob.vel_est_kernel,    5, sizeof(int),   &Nsamples);
 	
 	err |= clSetKernelArg(glob.to_vel_est_kernel, 4, sizeof(int),   &glob.params.lag_TO);       
 	err |= clSetKernelArg(glob.to_vel_est_kernel, 5, sizeof(int),   &glob.params.emissions);    
-	err |= clSetKernelArg(glob.to_vel_est_kernel, 6, sizeof(int),   &Nsamples);     // derived parameter
+	err |= clSetKernelArg(glob.to_vel_est_kernel, 6, sizeof(int),   &Nsamples);
 	
-	err |= clSetKernelArg(glob.to_arctan_kernel,  1, sizeof(float), &k_axial);      // derived parameter
-	err |= clSetKernelArg(glob.to_arctan_kernel,  2, sizeof(float), &k_trans);      // derived parameter 
+	err |= clSetKernelArg(glob.to_arctan_kernel,  1, sizeof(float), &k_axial);
+	err |= clSetKernelArg(glob.to_arctan_kernel,  2, sizeof(float), &k_trans);
 	err |= clSetKernelArg(glob.to_arctan_kernel,  3, sizeof(int),   &glob.params.numb_avg);     
 	err |= clSetKernelArg(glob.to_arctan_kernel,  4, sizeof(int),   &glob.params.avg_offset);   
     err |= clSetKernelArg(glob.to_arctan_kernel,  5, sizeof(int),   &glob.params.nlinesamples); 
 	if (err != CL_SUCCESS)return err;
 
-	//printf("end prepare\n");
+	printf("end prepare\n");
 	return 0;
 }
 
@@ -514,22 +517,22 @@ PLUGIN_API int  Prepare(void)
 /// </summary>
 PLUGIN_API int  GetOutBufSize(BuffSize* buf, int bufnum)
 {
-	//printf("outSize[%d].\n",bufnum);
 	glob.outSize[bufnum].sampleType = SAMPLE_FORMAT_INT8;
-	//printf(" sampleType: %d\n",glob.outSize[bufnum].sampleType);
-	glob.outSize[bufnum].width  =glob.params.nlinesamples; // Z and X estimates are in different outbufs
-	//printf(" width:      %d\n",glob.outSize[bufnum].width);
-	glob.outSize[bufnum].height =  glob.params.nlines;
-	//printf(" height:     %d\n",glob.outSize[bufnum].height);
-	glob.outSize[bufnum].depth  = 1;
-	//printf(" depth: %d\n",glob.outSize[bufnum].depth);
-	glob.outSize[bufnum].widthLen  = glob.outSize[bufnum].width    * sizeof(signed char);
-	//printf(" widthLen:   %d\n",glob.outSize[bufnum].widthLen);
-	glob.outSize[bufnum].heightLen = glob.outSize[bufnum].widthLen * glob.outSize[bufnum].height;
-	//printf(" heightLen:  %d\n",glob.outSize[bufnum].heightLen);
-	glob.outSize[bufnum].depthLen  = glob.outSize[bufnum].depth    * glob.outSize[bufnum].heightLen;
-	//printf(" depthLen:   %d\n",glob.outSize[bufnum].depthLen);
+	glob.outSize[bufnum].width      = glob.params.nlinesamples;
+	glob.outSize[bufnum].height     = glob.params.nlines;
+	glob.outSize[bufnum].depth      = 1;
+	glob.outSize[bufnum].widthLen   = glob.outSize[bufnum].width    * sizeof(signed char);
+	glob.outSize[bufnum].heightLen  = glob.outSize[bufnum].widthLen * glob.outSize[bufnum].height;
+	glob.outSize[bufnum].depthLen   = glob.outSize[bufnum].depth    * glob.outSize[bufnum].heightLen;
 	*buf = glob.outSize[bufnum];
+	//printf("outSize[%d].\n",bufnum);
+	//printf(" sampleType: %d\n",glob.outSize[bufnum].sampleType);
+	//printf(" width:      %d\n",glob.outSize[bufnum].width);
+	//printf(" height:     %d\n",glob.outSize[bufnum].height);
+	//printf(" depth: %d\n",glob.outSize[bufnum].depth);
+	//printf(" widthLen:   %d\n",glob.outSize[bufnum].widthLen);
+	//printf(" heightLen:  %d\n",glob.outSize[bufnum].heightLen);
+	//printf(" depthLen:   %d\n",glob.outSize[bufnum].depthLen);
 	//printf("end get outbuf size\n");	
 	return 0;
 }
@@ -552,11 +555,20 @@ PLUGIN_API int ProcessCLIO(cl_mem* inbuf, size_t numin, cl_mem* outbuf, size_t n
 	err |= clSetKernelArg(glob.split_kernel,     1, sizeof(int),    &glob.params.nlinesamples);
 	err |= clSetKernelArg(glob.split_kernel,     2, sizeof(cl_mem), &glob.real_inbufZ);  //could pack as float2
 	err |= clSetKernelArg(glob.split_kernel,     3, sizeof(cl_mem), &glob.imag_inbufZ);
+	err |= clSetKernelArg(glob.split_kernel,     4, sizeof(cl_mem), &glob.real_inbufZ2);  //could pack as float2
+	err |= clSetKernelArg(glob.split_kernel,     5, sizeof(cl_mem), &glob.imag_inbufZ2);
+	err |= clSetKernelArg(glob.split_kernel,     6, sizeof(cl_mem), &glob.real_inbufL); //could pack as float4
+	err |= clSetKernelArg(glob.split_kernel,     7, sizeof(cl_mem), &glob.imag_inbufL);
+	err |= clSetKernelArg(glob.split_kernel,     8, sizeof(cl_mem), &glob.real_inbufR);
+	err |= clSetKernelArg(glob.split_kernel,     9, sizeof(cl_mem), &glob.imag_inbufR);
+	err |= clSetKernelArg(glob.split_kernel,     10, sizeof(int),	&N1);
+	/*
 	err |= clSetKernelArg(glob.split_kernel,     4, sizeof(cl_mem), &glob.real_inbufL); //could pack as float4
 	err |= clSetKernelArg(glob.split_kernel,     5, sizeof(cl_mem), &glob.imag_inbufL);
 	err |= clSetKernelArg(glob.split_kernel,     6, sizeof(cl_mem), &glob.real_inbufR);
 	err |= clSetKernelArg(glob.split_kernel,     7, sizeof(cl_mem), &glob.imag_inbufR);
 	err |= clSetKernelArg(glob.split_kernel,     8, sizeof(int),	&N1);
+	*/
 	if (err != CL_SUCCESS)return err;
 	err = clEnqueueNDRangeKernel(clqueue, glob.split_kernel,      1, NULL, &glob.split_globWrkSize,      &glob.split_locWrkSize,      1, &inEv,        &glob.event0);
 	if (err != CL_SUCCESS)return err;
@@ -568,7 +580,7 @@ PLUGIN_API int ProcessCLIO(cl_mem* inbuf, size_t numin, cl_mem* outbuf, size_t n
 	err |= clSetKernelArg(glob.std_dev_kernel,    2, sizeof(cl_mem), &glob.std_dev_sum1_real); //could pack as float2
 	err |= clSetKernelArg(glob.std_dev_kernel,    3, sizeof(cl_mem), &glob.std_dev_sum1_imag);
 	err |= clSetKernelArg(glob.std_dev_kernel,    4, sizeof(cl_mem), &glob.std_dev_sum2);
-	err |= clSetKernelArg(glob.std_dev_kernel,    5, sizeof(int),    &Nsamples);               // derived parameter
+	err |= clSetKernelArg(glob.std_dev_kernel,    5, sizeof(int),    &Nsamples);
 	err |= clSetKernelArg(glob.std_dev_kernel,    7, sizeof(cl_mem), &glob.std_dev);
 	if (err != CL_SUCCESS)return err;
 	err = clEnqueueNDRangeKernel(clqueue, glob.std_dev_kernel,    1, NULL, &glob.std_dev_globWrkSize,    &glob.std_dev_locWrkSize,    1, &glob.event0, &glob.event1);
@@ -577,7 +589,7 @@ PLUGIN_API int ProcessCLIO(cl_mem* inbuf, size_t numin, cl_mem* outbuf, size_t n
 
 	err  = clSetKernelArg(glob.vel_est_kernel,    0, sizeof(cl_mem), &glob.real_inbufZ); //could pack as float2
 	err |= clSetKernelArg(glob.vel_est_kernel,    1, sizeof(cl_mem), &glob.imag_inbufZ);
-	err |= clSetKernelArg(glob.vel_est_kernel,    2, sizeof(cl_mem), &glob.temp_re);
+	err |= clSetKernelArg(glob.vel_est_kernel,    2, sizeof(cl_mem), &glob.temp_re); //could pack as float2
 	err |= clSetKernelArg(glob.vel_est_kernel,    3, sizeof(cl_mem), &glob.temp_im);
 	err |= clSetKernelArg(glob.vel_est_kernel,    6, sizeof(cl_mem), &glob.std_dev);
 	if (err != CL_SUCCESS)return err;
@@ -615,20 +627,20 @@ PLUGIN_API int ProcessCLIO(cl_mem* inbuf, size_t numin, cl_mem* outbuf, size_t n
 	//printf("after 6\n");
 
 	// Set Arguments for maxabsval
-	err  = clSetKernelArg(glob.maxabsval_kernel,  0, sizeof(cl_mem), &glob.outbufZ);//__global float* buffer
-	err |= clSetKernelArg(glob.maxabsval_kernel,  1, sizeof(float)*64, NULL); //&sizeof(cl_mem), glob.scratch);//__local float* scratch
-	err |= clSetKernelArg(glob.maxabsval_kernel,  2, sizeof(int),    &Nsamples); //__const int length
-	err |= clSetKernelArg(glob.maxabsval_kernel,  3, sizeof(cl_mem), &glob.result1);//__global float* result
+	err  = clSetKernelArg(glob.maxabsval_kernel, 0, sizeof(cl_mem),   &glob.outbufZ);
+	err |= clSetKernelArg(glob.maxabsval_kernel, 1, sizeof(float)*64, NULL);
+	err |= clSetKernelArg(glob.maxabsval_kernel, 2, sizeof(int),      &Nsamples);
+	err |= clSetKernelArg(glob.maxabsval_kernel, 3, sizeof(cl_mem),   &glob.result1);
 	if (err != CL_SUCCESS)return err;
 	err = clEnqueueNDRangeKernel(clqueue, glob.maxabsval_kernel,  1, NULL, &glob.maxabsval_globWrkSize,  &glob.maxabsval_locWrkSize,  1, &glob.event5, &glob.event6);
 	if (err != CL_SUCCESS)return err;
 	//printf("after 7\n");
 
 	// Set Arguments for maxabsval
-	err  = clSetKernelArg(glob.maxabsval_kernel,  0, sizeof(cl_mem), &glob.outbufX);//__global float* buffer
-	err |= clSetKernelArg(glob.maxabsval_kernel,  1, sizeof(float)*64, NULL); //&sizeof(cl_mem), glob.scratch);//__local float* scratch
-	err |= clSetKernelArg(glob.maxabsval_kernel,  2, sizeof(int),    &Nsamples); //__const int length
-	err |= clSetKernelArg(glob.maxabsval_kernel,  3, sizeof(cl_mem), &glob.result2);//__global float* result
+	err  = clSetKernelArg(glob.maxabsval_kernel, 0, sizeof(cl_mem),   &glob.outbufX);
+	err |= clSetKernelArg(glob.maxabsval_kernel, 1, sizeof(float)*64, NULL);
+	err |= clSetKernelArg(glob.maxabsval_kernel, 2, sizeof(int),      &Nsamples);
+	err |= clSetKernelArg(glob.maxabsval_kernel, 3, sizeof(cl_mem),   &glob.result2);
 	if (err != CL_SUCCESS)return err;
 	err = clEnqueueNDRangeKernel(clqueue, glob.maxabsval_kernel,  1, NULL, &glob.maxabsval_globWrkSize,  &glob.maxabsval_locWrkSize,  1, &glob.event6, &glob.event7);
 	if (err != CL_SUCCESS)return err;
@@ -647,9 +659,9 @@ PLUGIN_API int ProcessCLIO(cl_mem* inbuf, size_t numin, cl_mem* outbuf, size_t n
 	// Combine kernel arguments
 	err  = clSetKernelArg(glob.combine_kernel,   0, sizeof(cl_mem), &glob.outbufZ);
 	err |= clSetKernelArg(glob.combine_kernel,   1, sizeof(cl_mem), &glob.outbufX);
-	err |= clSetKernelArg(glob.combine_kernel,   2, sizeof(cl_mem), &glob.maximum);		// derived parameter
+	err |= clSetKernelArg(glob.combine_kernel,   2, sizeof(cl_mem), &glob.maximum);	// derived parameter
 	err |= clSetKernelArg(glob.combine_kernel,   3, sizeof(int),    &Nsamples);		// derived parameter
-	err |= clSetKernelArg(glob.combine_kernel,   4, sizeof(cl_mem), &outbuf[0]);	//check this.
+	err |= clSetKernelArg(glob.combine_kernel,   4, sizeof(cl_mem), &outbuf[0]);
 	err |= clSetKernelArg(glob.combine_kernel,   5, sizeof(cl_mem), &outbuf[1]);
 	if (err != CL_SUCCESS)return err;
 	err = clEnqueueNDRangeKernel(clqueue, glob.combine_kernel,    1, NULL, &glob.combine_globWrkSize,    &glob.combine_locWrkSize,    1, &glob.event8, outEv);
