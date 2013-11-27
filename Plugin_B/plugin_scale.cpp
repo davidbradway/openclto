@@ -236,7 +236,6 @@ PLUGIN_API int  InitializeCL( cl_context ctx, cl_device_id id, char* path_to_mod
 	}
 
 	printf("OpenCL file: %s \n", glob.srcOpenCL);
-
 	// Step 06: Read kernel file
 	//Load content of OpenCL file
     if (!LoadOpenCLSrc())
@@ -245,7 +244,6 @@ PLUGIN_API int  InitializeCL( cl_context ctx, cl_device_id id, char* path_to_mod
 		return -2;
 	}
 	// Step 07: Create Kernel program from the read in source
-	//Create program with loaded content
     glob.prog = clCreateProgramWithSource(glob.ctx, 1, (const char **) & glob.program_source, NULL, &err);
     if (err != CL_SUCCESS) {
         printf("Error: Failed to create program with source!\n");
@@ -254,7 +252,6 @@ PLUGIN_API int  InitializeCL( cl_context ctx, cl_device_id id, char* path_to_mod
 
 	// Step 08: Build Kernel Program
 	//printf("Before build\n");
-    // Build the program executable
     err |= clBuildProgram(glob.prog, 0, NULL, NULL, NULL, NULL);
     if (err != CL_SUCCESS)
     {
@@ -268,7 +265,6 @@ PLUGIN_API int  InitializeCL( cl_context ctx, cl_device_id id, char* path_to_mod
 	printf("After build\n");
 
     // Step 09: Create OpenCL Kernels
-	// Create the compute kernel in the program we wish to run
     int glob_err = 0;
 	int step = 0;
 
@@ -403,7 +399,7 @@ PLUGIN_API int  Prepare(void)
 
 	// maxabsval2 kernel
 	glob.maxabsval2_locWrkSize = 1;  glob.maxabsval2_globWrkSize = (size_t)(ROUND_UP(1,glob.maxabsval2_locWrkSize));
-	printf("maxabsval2:       global work size: %d, local work size: %d\n",glob.maxabsval2_globWrkSize,glob.maxabsval2_locWrkSize);
+	//printf("maxabsval2:       global work size: %d, local work size: %d\n",glob.maxabsval2_globWrkSize,glob.maxabsval2_locWrkSize);
 
 	// Combine kernel
 	glob.combine_locWrkSize = 64;    glob.combine_globWrkSize = (size_t)(ROUND_UP(Nsamples,glob.combine_locWrkSize));
@@ -448,7 +444,6 @@ PLUGIN_API int  Prepare(void)
 	if (glob.outbufX != 0) { clReleaseMemObject(glob.outbufX);  glob.outbufX = 0; }
 
 	// Step 05: Create memory buffer objects
-	// Buffer creation for split kernel
 	glob.real_inbufZ = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.params.nlinesamples*glob.params.nlines*glob.params.emissions*sizeof(float), NULL, &err);  //could pack as float2
 	glob.imag_inbufZ = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.params.nlinesamples*glob.params.nlines*glob.params.emissions*sizeof(float), NULL, &err); 
 	glob.real_inbufZ2 = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.params.nlinesamples*glob.params.nlines*glob.params.emissions*sizeof(float), NULL, &err);  //could pack as float2

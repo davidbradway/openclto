@@ -22,9 +22,9 @@
 
 //CREATE MEMORY SPACE
 //float data[6*DATA_SIZE_IN];
-int data[8*DATA_SIZE_IN];
-signed char resultsZ[DATA_SIZE_OUT];
-signed char resultsX[DATA_SIZE_OUT];
+short data[8*DATA_SIZE_IN]; //16-bit integer
+signed char resultsZ[DATA_SIZE_OUT]; //8-bit integer
+signed char resultsX[DATA_SIZE_OUT]; //8-bit integer
 
 PluginApi api;
 //char dllpath[4096];
@@ -122,17 +122,17 @@ void checkError(int err, char *detail){
 
 /// <summary> New Load Data file, single file to single memory block </summary>
 //int load_data_file(float* data, const char *filename){
-int load_data_file(int* data, const char *filename){
+int load_data_file(short* data, const char *filename){
 	// Load simulated data from file
 	size_t datasize;
 	FILE *ptr_myfile=fopen(filename,"rb");
 	if (!ptr_myfile){ printf("Unable to open file!"); return -1; }
 	fseek(ptr_myfile, 0, SEEK_END);
 	//datasize = ftell(ptr_myfile)/sizeof(float);
-	datasize = ftell(ptr_myfile)/sizeof(int);
+	datasize = ftell(ptr_myfile)/sizeof(short);
 	rewind(ptr_myfile);
 	//size_t count1 = fread(data,sizeof(float),datasize,ptr_myfile);
-	size_t count1 = fread(data,sizeof(int),datasize,ptr_myfile);
+	size_t count1 = fread(data,sizeof(short),datasize,ptr_myfile);
 	fclose(ptr_myfile);
 	printf("datasize = %d\n",datasize);
 	if(count1 != datasize){
@@ -339,7 +339,7 @@ int main(int argc, char *argv[])
 		insize[i].height     = 1;
 		insize[i].depth      = 1;
 		//insize[i].widthLen  = insize[i].width  * sizeof(float);
-		insize[i].widthLen  = insize[i].width  * sizeof(int);
+		insize[i].widthLen  = insize[i].width  * sizeof(short);
 		insize[i].heightLen = insize[i].height * insize[i].widthLen;
 		insize[i].depthLen  = insize[i].depth  * insize[i].heightLen;
 		err |= api.SetInBufSize(&insize[i], i);
@@ -356,14 +356,14 @@ int main(int argc, char *argv[])
 	checkError(err,"Failed CL preparation");
 	
 	//if (outsize[0].depthLen != insize[0].depthLen/intParams[ind_emissions]/6/sizeof(float)*sizeof(signed char)) { 
-	if (outsize[0].depthLen != insize[0].depthLen/intParams[ind_emissions]/8/sizeof(int)*sizeof(signed char)) { 
+	if (outsize[0].depthLen != insize[0].depthLen/intParams[ind_emissions]/8/sizeof(short)*sizeof(signed char)) { 
 		printf("Output size is not what is expected !!!! \n"); exit(1); 
 	}
  	
 	// Step 05: Create memory buffer objects
     // Create the input and output arrays in device memory for our calculation
 	//inbuf[0] = clCreateBuffer(context, CL_MEM_READ_ONLY,  6*DATA_SIZE_IN*sizeof(float),NULL, &err); checkError(err,"Create buffer failed1");
-	inbuf[0] = clCreateBuffer(context, CL_MEM_READ_ONLY,  8*DATA_SIZE_IN*sizeof(int),NULL, &err); checkError(err,"Create buffer failed1");
+	inbuf[0] = clCreateBuffer(context, CL_MEM_READ_ONLY,  8*DATA_SIZE_IN*sizeof(short),NULL, &err); checkError(err,"Create buffer failed1");
 	outbuf[0] = clCreateBuffer(context, CL_MEM_WRITE_ONLY,DATA_SIZE_OUT*sizeof(signed char), NULL, &err); checkError(err,"Create buffer failed3");
 	outbuf[1] = clCreateBuffer(context, CL_MEM_WRITE_ONLY, DATA_SIZE_OUT*sizeof(signed char), NULL, &err); checkError(err,"Create buffer failed4");
 
@@ -374,7 +374,7 @@ int main(int argc, char *argv[])
 	// Step 05: Enqueue writing to the memory buffer
 	// Write data from CPU memory 'data' to GPU input memory buffer
 	//err = clEnqueueWriteBuffer(commands, inbuf[0], CL_TRUE, 0, 6*DATA_SIZE_IN*sizeof(float), data, 0, NULL, &evHost1); checkError(err,"Failed to write to source memory 1!");
-	err = clEnqueueWriteBuffer(commands, inbuf[0], CL_TRUE, 0, 8*DATA_SIZE_IN*sizeof(int), data, 0, NULL, &evHost1); checkError(err,"Failed to write to source memory 1!");
+	err = clEnqueueWriteBuffer(commands, inbuf[0], CL_TRUE, 0, 8*DATA_SIZE_IN*sizeof(short), data, 0, NULL, &evHost1); checkError(err,"Failed to write to source memory 1!");
 	
 	// Step 10: Set OpenCL kernel argument
 	// Step 11: Execute OpenCL kernel in data parallel

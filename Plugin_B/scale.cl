@@ -10,7 +10,7 @@
  *	@param inbufLR - OpenCL buffer containing packed real part of Left beam
  *	@param N - number of lines*emissions, i.e. memory blocks to split
  */
-__kernel void split(__global int* inbuf,
+__kernel void split(__global short* inbuf,
 					   const  int nlinesamples,
 					__global float* real_inbufZ,
 					__global float* imag_inbufZ,
