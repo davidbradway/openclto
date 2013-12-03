@@ -332,10 +332,10 @@ int main(int argc, char *argv[])
 	int i;
 	for(i=0;i<numin;i++){
 		// Size of input Buffer
-		//insize[i].sampleType = SAMPLE_FORMAT_FLOAT32;
-		insize[i].sampleType = SAMPLE_FORMAT_INT16;
-		//insize[i].width      = 2*intParams[ind_nlinesamples]*3*intParams[ind_nlines]*intParams[ind_emissions]; // 6 = 2IQ * 3CLR
-		insize[i].width      = 2*intParams[ind_nlinesamples]*4*intParams[ind_nlines]*intParams[ind_emissions]; // 8 = 2IQ * 4CCLR
+		//insize[i].sampleType = SAMPLE_FORMAT_INT16;
+		insize[i].sampleType = SAMPLE_FORMAT_INT16X2;
+		//insize[i].width      = 2*intParams[ind_nlinesamples]*4*intParams[ind_nlines]*intParams[ind_emissions]; // 8 = 2IQ * 4CCLR
+		insize[i].width      = intParams[ind_nlinesamples]*4*intParams[ind_nlines]*intParams[ind_emissions]; // 4 = 4CCLR
 		insize[i].height     = 1;
 		insize[i].depth      = 1;
 		//insize[i].widthLen  = insize[i].width  * sizeof(float);
@@ -355,15 +355,15 @@ int main(int argc, char *argv[])
 	}
 	checkError(err,"Failed CL preparation");
 	
-	//if (outsize[0].depthLen != insize[0].depthLen/intParams[ind_emissions]/6/sizeof(float)*sizeof(signed char)) { 
-	if (outsize[0].depthLen != insize[0].depthLen/intParams[ind_emissions]/8/sizeof(short)*sizeof(signed char)) { 
+	//if (outsize[0].depthLen != insize[0].depthLen/intParams[ind_emissions]/8/sizeof(short)*sizeof(signed char)) { 
+	if (outsize[0].depthLen != insize[0].depthLen/intParams[ind_emissions]/4/sizeof(short)*sizeof(signed char)) { 
 		printf("Output size is not what is expected !!!! \n"); exit(1); 
 	}
  	
 	// Step 05: Create memory buffer objects
     // Create the input and output arrays in device memory for our calculation
-	//inbuf[0] = clCreateBuffer(context, CL_MEM_READ_ONLY,  6*DATA_SIZE_IN*sizeof(float),NULL, &err); checkError(err,"Create buffer failed1");
-	inbuf[0] = clCreateBuffer(context, CL_MEM_READ_ONLY,  8*DATA_SIZE_IN*sizeof(short),NULL, &err); checkError(err,"Create buffer failed1");
+	//inbuf[0] = clCreateBuffer(context, CL_MEM_READ_ONLY,  8*DATA_SIZE_IN*sizeof(short),NULL, &err); checkError(err,"Create buffer failed1");
+	inbuf[0] = clCreateBuffer(context, CL_MEM_READ_ONLY,  8*DATA_SIZE_IN*sizeof(short),NULL, &err); checkError(err,"Create buffer failed1"); //?
 	outbuf[0] = clCreateBuffer(context, CL_MEM_WRITE_ONLY,DATA_SIZE_OUT*sizeof(signed char), NULL, &err); checkError(err,"Create buffer failed3");
 	outbuf[1] = clCreateBuffer(context, CL_MEM_WRITE_ONLY, DATA_SIZE_OUT*sizeof(signed char), NULL, &err); checkError(err,"Create buffer failed4");
 
@@ -373,15 +373,16 @@ int main(int argc, char *argv[])
 	
 	// Step 05: Enqueue writing to the memory buffer
 	// Write data from CPU memory 'data' to GPU input memory buffer
-	//err = clEnqueueWriteBuffer(commands, inbuf[0], CL_TRUE, 0, 6*DATA_SIZE_IN*sizeof(float), data, 0, NULL, &evHost1); checkError(err,"Failed to write to source memory 1!");
+	//err = clEnqueueWriteBuffer(commands, inbuf[0], CL_TRUE, 0, 8*DATA_SIZE_IN*sizeof(short), data, 0, NULL, &evHost1); checkError(err,"Failed to write to source memory 1!");
 	err = clEnqueueWriteBuffer(commands, inbuf[0], CL_TRUE, 0, 8*DATA_SIZE_IN*sizeof(short), data, 0, NULL, &evHost1); checkError(err,"Failed to write to source memory 1!");
+
 	
 	// Step 10: Set OpenCL kernel argument
 	// Step 11: Execute OpenCL kernel in data parallel
 	err = api.ProcessCLIO(inbuf, numin, outbuf, numout, commands, evHost1, &evDLL);
 	checkError(err,"Failed process CL I/O");
 	//printf("Made it past ProcessCLIO\n");
-		
+	
 	// Step 12: Read (Transfer result) from the memory buffer
 	// Read back the results from the device 'output/outbuf' to the CPU memory 'results'
 	err = clEnqueueReadBuffer(commands, outbuf[0], CL_TRUE, 0, DATA_SIZE_OUT*sizeof(signed char), resultsZ, 1, &evDLL, NULL); checkError(err,"Failed to read output array 2!");

@@ -340,8 +340,8 @@ PLUGIN_API int  SetParams(float* pfp, size_t nfp, int* pip, size_t nip)
 PLUGIN_API int  SetInBufSize(BuffSize* buf, int bufnum)
 {
 	printf("start set inbuf size\n");
-    //if (buf->sampleType != SAMPLE_FORMAT_FLOAT32) return -1;
-    if (buf->sampleType != SAMPLE_FORMAT_INT16) return -1;
+    //if (buf->sampleType != SAMPLE_FORMAT_INT16) return -1;
+	if (buf->sampleType != SAMPLE_FORMAT_INT16X2) return -1;
     glob.inSize[bufnum]  = *buf;
 	printf("end set inbuf size\n");
 	return 0;
@@ -370,7 +370,7 @@ PLUGIN_API int  Prepare(void)
 
 	// TODO: fix this so it doesn't take 25ms. Avoid writing to memory.
 	// Split kernel
-	glob.split_locWrkSize = 1;       glob.split_globWrkSize = (size_t)(ROUND_UP(glob.params.nlines*glob.params.emissions,glob.split_locWrkSize));
+	glob.split_locWrkSize = 64;       glob.split_globWrkSize = (size_t)(ROUND_UP(glob.params.nlines*glob.params.emissions,glob.split_locWrkSize));
 	//printf("split:            global work size: %d, local work size: %d\n",glob.split_globWrkSize,glob.split_locWrkSize);
 
 	// Standard deviation kernel
@@ -464,7 +464,7 @@ PLUGIN_API int  Prepare(void)
 	glob.temp_im             = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.globWrkSize*sizeof(float), NULL, &err); 
 
 	// Buffer creation for to_vel_est/to_arctan kernels
-	glob.to_vel_est_sum12_re_im = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.globWrkSize*4*sizeof(float), NULL, &err);
+	glob.to_vel_est_sum12_re_im = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.globWrkSize*sizeof(cl_float4), NULL, &err);
 
 	// Buffer creation for arctan_kernel 
 	glob.outbufZ     = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.params.nlinesamples*glob.params.nlines*sizeof(float), NULL, &err); 
