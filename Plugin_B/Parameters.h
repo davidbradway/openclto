@@ -1,8 +1,6 @@
 // TODO: these should be moved to into Int Parameter Array
 #define DATA_SIZE_IN (1136*75*32)
 #define DATA_SIZE_OUT (1136*75)
-//#define DATA_SIZE_IN (1136*750*32)
-//#define DATA_SIZE_OUT (1136*750)
 
 /// <summary> Integer Parameter Array Enumerated Indices </summary>
 typedef enum IntParamIndex {
@@ -14,6 +12,7 @@ typedef enum IntParamIndex {
 	ind_lag_axial,     // = 1, //
 	ind_lag_TO,        // = 2, //
 	ind_lag_acq,       // = 1, //
+	ind_interleave,    // = 12 or 16, //
 	IntParamCount
 };
 
@@ -38,7 +37,8 @@ typedef struct ParamStruct{
 	int avg_offset;
 	int lag_axial; // = 1; //
 	int lag_TO; // = 2; //
-	int lag_acq; // = 1; //bradway
+	int lag_acq; // = 1;
+	int interleave; // = 12 or 16;
 
 	float fs; //The sampling freqency. [Hz]
 	float f0; //The central frequency of the excitation. [Hz]

@@ -12,20 +12,23 @@
  */
 __kernel void split(__global short2* inbuf,
 					  const  int     nlinesamples,
+					  const  int     nlines,
+					  const  int     interleave,
+					  const  int     emissions,
 					__global float2* Z,
 					__global float2* Z2,
 					__global float2* L,
-					__global float2* R,
-					__const  int     N) {
+					__global float2* R) {
  	// unwrap single inbuf into separate buffers
-	// assume inbuf will have 'dimensions' in this order [real/imag, line samples, position (Z1/Z2/L/R), lines, emission shots, frames]
+	// did assume inbuf will have 'dimensions' in this order [real/imag, line samples, position (Z1/Z2/L/R), lines, emission shots]
+	// now assume inbuf will have 'dimensions' in this order [real/imag, nlinesamples, interleave =Z1/Z2/L/R * position, emissions shots, =nlines/interleave]
 	size_t local_size = get_local_size(0); // how big is this group? 64
 	size_t group_id =  get_group_id(0); // which group number is this?
 	size_t local_id = get_local_id(0); // where am i in this group of 64
 	size_t global_size = get_global_size(0);  // roundup(1136*4*75*32,64)
 	size_t global_id = get_global_id(0); // i.e. 66
-
-	size_t i, offset = global_id*nlinesamples;
+	size_t i,j,k;
+	int latgroups = nlines/(interleave/4);
 	/*
 	// Ask Lee about this:
 	// http://stackoverflow.com/questions/15394882/need-help-understanding-opencl-reductions
@@ -36,22 +39,33 @@ __kernel void split(__global short2* inbuf,
 	// OR just index into the inbuf in the right place later in the program
 	// and figure out integer math rather than converting to floats?
 	//
-	while (	global_id < N) {
-		if((global_id/nlinesamples)%4==0){ // Z
-			Z[global_id/(4*nlinesamples)*nlinesamples+(global_id%nlinesamples)] = convert_float2(inbuf[global_id]);
-		}
-		else if((global_id/nlinesamples)%4==1){ // Z2
-			Z2[global_id/(4*nlinesamples)*nlinesamples+(global_id%nlinesamples)] = convert_float2(inbuf[global_id]);
-		}
-		else if((global_id/nlinesamples)%4==2){ // L
-			L[global_id/(4*nlinesamples)*nlinesamples+(global_id%nlinesamples)] = convert_float2(inbuf[global_id]);
-		}
-		else { //((global_id/nlinesamples)%4==3){ // R
-			R[global_id/(4*nlinesamples)*nlinesamples+(global_id%nlinesamples)] = convert_float2(inbuf[global_id]);
-		}
-		global_id += global_size;
-	}
 	*/
+	// make a kernel that has a work item for each of nlinesamples
+	// global_id is the sample in depth
+	if (global_id < nlinesamples) {
+		// in each thread, loop across interleave=Z/Z2/L/R*locations, emissions, latgroups=nlines/interleave
+		// reorder so emissions is in last dimension
+		// want result in this order: locations, =nlines/interleave, emissions, 
+		for(k=0;k<latgroups;k++){ //lateral group counter: 0-24 or 0-6
+			for(j=0;j<emissions;j++){ //emission counter: 0-15 or 0-31
+				for(i=0;i<interleave;i++){ //interleave counter: 0-15 or 0-11
+					if     (i%4==0){       Z[j*latgroups*(interleave/4)*nlinesamples + k*(interleave/4)*nlinesamples + (i/4)*nlinesamples + global_id] = 
+						convert_float2(inbuf[k*emissions* interleave   *nlinesamples + j* interleave   *nlinesamples +  i   *nlinesamples + global_id]);
+					}
+					else if(i%4==1){      Z2[j*latgroups*(interleave/4)*nlinesamples + k*(interleave/4)*nlinesamples + (i/4)*nlinesamples + global_id] = 
+						convert_float2(inbuf[k*emissions* interleave   *nlinesamples + j* interleave   *nlinesamples +  i   *nlinesamples + global_id]);
+					}
+					else if(i%4==2){	   L[j*latgroups*(interleave/4)*nlinesamples + k*(interleave/4)*nlinesamples + (i/4)*nlinesamples + global_id] = 
+						convert_float2(inbuf[k*emissions* interleave   *nlinesamples + j* interleave   *nlinesamples +  i   *nlinesamples + global_id]); 
+					}
+					else           {	   R[j*latgroups*(interleave/4)*nlinesamples + k*(interleave/4)*nlinesamples + (i/4)*nlinesamples + global_id] = 
+						convert_float2(inbuf[k*emissions* interleave   *nlinesamples + j* interleave   *nlinesamples +  i   *nlinesamples + global_id]);
+					}
+				}
+			}
+		}
+	}
+	/*
 	if (global_id < N) {
 		// in each thread, loop down samples.
 		// access the memory locations for IQ and Z,Z2,L,R
@@ -68,6 +82,7 @@ __kernel void split(__global short2* inbuf,
 			R[offset+i]  = convert_float2(inbuf[offset*(4) + (3*nlinesamples) + i]);
 		}
 	}
+	*/
 }
 
 /** Kernel for calculating standard deviation of input array

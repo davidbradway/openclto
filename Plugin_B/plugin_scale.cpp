@@ -156,7 +156,7 @@ PLUGIN_API int  Cleanup(void)
 	err |= clReleaseMemObject(glob.L);
 	err |= clReleaseMemObject(glob.R);
 
-	err |= clReleaseMemObject(glob.std_dev_sum1_real); //could pack as float2
+	err |= clReleaseMemObject(glob.std_dev_sum1_real);
 	err |= clReleaseMemObject(glob.std_dev_sum1_imag);
 	err |= clReleaseMemObject(glob.std_dev_sum2);
 	err |= clReleaseMemObject(glob.std_dev);
@@ -194,7 +194,6 @@ PLUGIN_API int  Cleanup(void)
 /// </summary>
 PLUGIN_API void  GetPluginInfo(PluginInfo* info)
 {
-	//printf("get plugin info\n");
     info->UseOpenCL = 1;
 	info->InCLMem = 1;  //1 or 0
     info->OutCLMem = 1; //1 or 0
@@ -214,7 +213,6 @@ PLUGIN_API void  GetPluginInfo(PluginInfo* info)
 /// </summary>
 PLUGIN_API int  InitializeCL( cl_context ctx, cl_device_id id, char* path_to_module )
 {
-	printf("Path to module: %s \n", path_to_module);
     int err = 0;
     glob.ctx = ctx;
     glob.device = id;
@@ -225,8 +223,8 @@ PLUGIN_API int  InitializeCL( cl_context ctx, cl_device_id id, char* path_to_mod
 		printf("Function: Initialize, Error in setting path\n");
         return - 1;
 	}
+	//printf("OpenCL file: %s \n", glob.srcOpenCL);
 
-	printf("OpenCL file: %s \n", glob.srcOpenCL);
 	// Step 06: Read kernel file
 	if (!LoadOpenCLSrc())
 	{
@@ -242,8 +240,7 @@ PLUGIN_API int  InitializeCL( cl_context ctx, cl_device_id id, char* path_to_mod
 	}
 
 	// Step 08: Build Kernel Program
-	printf("Before build\n");
-    err |= clBuildProgram(glob.prog, 0, NULL, NULL, NULL, NULL);
+	err |= clBuildProgram(glob.prog, 0, NULL, NULL, NULL, NULL);
     if (err != CL_SUCCESS)
     {
         size_t len;
@@ -253,7 +250,6 @@ PLUGIN_API int  InitializeCL( cl_context ctx, cl_device_id id, char* path_to_mod
         printf("%s\n", buffer);
         exit(1);
     }
-	printf("After build\n");
 
     // Step 09: Create OpenCL Kernels
     int glob_err = 0;
@@ -308,6 +304,7 @@ PLUGIN_API int  SetParams(float* pfp, size_t nfp, int* pip, size_t nip)
 	glob.params.lag_axial    = pip[ind_lag_axial];
 	glob.params.lag_TO       = pip[ind_lag_TO];
 	glob.params.lag_acq      = pip[ind_lag_acq];
+	glob.params.interleave   = pip[ind_interleave];
 	
 	glob.params.fs           = pfp[ind_fs];
 	glob.params.f0           = pfp[ind_f0];
@@ -354,8 +351,7 @@ PLUGIN_API int  Prepare(void)
     cl_int err = CL_SUCCESS;
 
 	// Split kernel
-	glob.split_locWrkSize = 64;       glob.split_globWrkSize = (size_t)(ROUND_UP(glob.params.nlines*glob.params.emissions,glob.split_locWrkSize));
-	//glob.split_locWrkSize = 64;       glob.split_globWrkSize = (size_t)(ROUND_UP(glob.params.nlinesamples*4*glob.params.nlines*glob.params.emissions,glob.split_locWrkSize));
+	glob.split_locWrkSize = 64;       glob.split_globWrkSize = (size_t)(ROUND_UP(glob.params.nlinesamples,glob.split_locWrkSize));
 	//printf("split:            global work size: %d, local work size: %d\n",glob.split_globWrkSize,glob.split_locWrkSize);
 
 	// Standard deviation kernel
@@ -380,7 +376,7 @@ PLUGIN_API int  Prepare(void)
 
 	// maxabsval kernel
 	glob.maxabsval_locWrkSize = 64;  glob.maxabsval_globWrkSize = (size_t)(ROUND_UP(Nsamples,glob.maxabsval_locWrkSize));
-	printf("maxabsval:          global work size: %d, local work size: %d\n",glob.maxabsval_globWrkSize,glob.maxabsval_locWrkSize);
+	//printf("maxabsval:          global work size: %d, local work size: %d\n",glob.maxabsval_globWrkSize,glob.maxabsval_locWrkSize);
 
 	// maxabsval2 kernel
 	glob.maxabsval2_locWrkSize = 1;  glob.maxabsval2_globWrkSize = (size_t)(ROUND_UP(1,glob.maxabsval2_locWrkSize));
@@ -511,7 +507,6 @@ PLUGIN_API int ProcessCLIO(cl_mem* inbuf, size_t numin, cl_mem* outbuf, size_t n
 {
 	float scale = static_cast<float>(glob.params.c*glob.params.fprf/(4.0*PI*glob.params.f0*glob.params.lag_axial)/glob.params.lag_acq);
 	int Nsamples = glob.params.nlines*glob.params.nlinesamples;
-	int N1 = glob.params.nlines*glob.params.emissions;
 	int threads = Nsamples/64;
 
 	cl_int err = CL_SUCCESS;
@@ -521,11 +516,13 @@ PLUGIN_API int ProcessCLIO(cl_mem* inbuf, size_t numin, cl_mem* outbuf, size_t n
 	// Split kernel arguments
 	err  = clSetKernelArg(glob.split_kernel,     0, sizeof(cl_mem), inbuf);
 	err |= clSetKernelArg(glob.split_kernel,     1, sizeof(cl_int), &glob.params.nlinesamples);
-	err |= clSetKernelArg(glob.split_kernel,     2, sizeof(cl_mem), &glob.Z);
-	err |= clSetKernelArg(glob.split_kernel,     3, sizeof(cl_mem), &glob.Z2);
-	err |= clSetKernelArg(glob.split_kernel,     4, sizeof(cl_mem), &glob.L);
-	err |= clSetKernelArg(glob.split_kernel,     5, sizeof(cl_mem), &glob.R);
-	err |= clSetKernelArg(glob.split_kernel,     6, sizeof(cl_int),	&N1);
+	err |= clSetKernelArg(glob.split_kernel,     2, sizeof(cl_int), &glob.params.nlines);
+	err |= clSetKernelArg(glob.split_kernel,     3, sizeof(cl_int), &glob.params.interleave);
+	err |= clSetKernelArg(glob.split_kernel,     4, sizeof(cl_int), &glob.params.emissions);
+	err |= clSetKernelArg(glob.split_kernel,     5, sizeof(cl_mem), &glob.Z);
+	err |= clSetKernelArg(glob.split_kernel,     6, sizeof(cl_mem), &glob.Z2);
+	err |= clSetKernelArg(glob.split_kernel,     7, sizeof(cl_mem), &glob.L);
+	err |= clSetKernelArg(glob.split_kernel,     8, sizeof(cl_mem), &glob.R);
 	if (err != CL_SUCCESS)return err;
 	err = clEnqueueNDRangeKernel(clqueue, glob.split_kernel,      1, NULL, &glob.split_globWrkSize,      &glob.split_locWrkSize,      1, &inEv,        &glob.event0);
 	if (err != CL_SUCCESS)return err;
@@ -612,7 +609,7 @@ PLUGIN_API int ProcessCLIO(cl_mem* inbuf, size_t numin, cl_mem* outbuf, size_t n
 	// Combine kernel arguments
 	err  = clSetKernelArg(glob.combine_kernel,   0, sizeof(cl_mem), &glob.outbufZ);
 	err |= clSetKernelArg(glob.combine_kernel,   1, sizeof(cl_mem), &glob.outbufX);
-	err |= clSetKernelArg(glob.combine_kernel,   2, sizeof(cl_mem), &glob.maximum);	// derived parameter
+	err |= clSetKernelArg(glob.combine_kernel,   2, sizeof(cl_mem), &glob.maximum);
 	err |= clSetKernelArg(glob.combine_kernel,   3, sizeof(cl_float), &scale);		// derived parameter
 	err |= clSetKernelArg(glob.combine_kernel,   4, sizeof(cl_int), &Nsamples);		// derived parameter
 	err |= clSetKernelArg(glob.combine_kernel,   5, sizeof(cl_mem), &outbuf[0]);
@@ -620,7 +617,8 @@ PLUGIN_API int ProcessCLIO(cl_mem* inbuf, size_t numin, cl_mem* outbuf, size_t n
 	if (err != CL_SUCCESS)return err;
 	err = clEnqueueNDRangeKernel(clqueue, glob.combine_kernel,    1, NULL, &glob.combine_globWrkSize,    &glob.combine_locWrkSize,    1, &glob.event8, outEv);
 	if (err != CL_SUCCESS)return err;
-	//printf("after 10\n");
+	
+	printf("end CLIO\n");
 	return 0;
 }
 

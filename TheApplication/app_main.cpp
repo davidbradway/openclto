@@ -233,14 +233,15 @@ int main(int argc, char *argv[])
 	/*
 	// Parameter values in JBOs ProFocus test dataset
 	intParams[ind_emissions]     = 16; //meas.CFM.N_emis
-	intParams[ind_nlines]        = 56;  //preview_image.no_lines/3
+	intParams[ind_nlines]        = 28;  // 4 * 7
 	intParams[ind_nlinesamples]  = 208; //size(samples,1)
 	intParams[ind_numb_avg]      = 6; // not sampled at 35 MHz... only 1024 samples for 6 cm... 8/meas.CFM.f0*sarus_sys.rcv_fs
 	intParams[ind_avg_offset]    = 1;
 	intParams[ind_lag_axial]     = 1;
 	intParams[ind_lag_TO]        = 2;
 	intParams[ind_lag_acq]       = 1;
-	numIntParams                 = 8; //IntParamCount;
+	intParams[ind_interleave]    = 16; // 4 * 4
+	numIntParams                 = 9; //IntParamCount;
 	
 	floatParams[ind_fs]	      = 7500000;
 	floatParams[ind_f0]       = 5000000;
@@ -250,18 +251,18 @@ int main(int argc, char *argv[])
 	floatParams[ind_lambda_X] = static_cast<float>(0.0022); // transverse wavelength  par.TO.lambda_zx
 	numFloatParams            = 6; //FloatParamCount;
 	*/
-
-	
+		
 	// Parameter values in one file from MJPs test dataset
 	intParams[ind_emissions]     = 32;
-	intParams[ind_nlines]        = 75;
+	intParams[ind_nlines]        = 75; // 3 * 25
 	intParams[ind_nlinesamples]  = 1136;
 	intParams[ind_numb_avg]      = 40;
 	intParams[ind_avg_offset]    = 1;
 	intParams[ind_lag_axial]     = 1;
 	intParams[ind_lag_TO]        = 2;
 	intParams[ind_lag_acq]       = 1;
-	numIntParams                 = 8; //IntParamCount;
+	intParams[ind_interleave]    = 12; // 4 * 3
+	numIntParams                 = 9; //IntParamCount;
 	
 	floatParams[ind_fs]	      = 17500000;
 	floatParams[ind_f0]       =  3500000;
@@ -281,7 +282,7 @@ int main(int argc, char *argv[])
 	checkError(err,"Failed to create a command queue!");
 
 	// Step 05: Load the data from file
-	const char  filename[] = "beamformed_flow_data_seq_no_3IQint4beam.bin";
+	const char  filename[] = "PF.bin";
 	err = load_data_file(data,filename);
 	checkError(err,"load data file failed");
 
