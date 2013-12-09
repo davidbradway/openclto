@@ -328,7 +328,6 @@ PLUGIN_API int  SetParams(float* pfp, size_t nfp, int* pip, size_t nip)
 /// </summary>
 PLUGIN_API int  SetInBufSize(BuffSize* buf, int bufnum)
 {
-	//if (buf->sampleType != SAMPLE_FORMAT_INT16) return -1;
 	if (buf->sampleType != SAMPLE_FORMAT_INT16X2) return -1;
     glob.inSize[bufnum]  = *buf;
 	return 0;
@@ -343,7 +342,6 @@ PLUGIN_API int  SetInBufSize(BuffSize* buf, int bufnum)
 /// </summary>
 PLUGIN_API int  Prepare(void)
 {
-	printf("start prepare\n");
 	// Set parameters and arguments for stand-alone DLL in UseCase
 	float scale   = static_cast<float>(glob.params.c*glob.params.fprf/(4.0*PI*glob.params.f0*glob.params.lag_axial)/glob.params.lag_acq);
 	float k_axial = static_cast<float>(glob.params.c*glob.params.fprf/(2.0*PI*4.0*glob.params.f0)/glob.params.lag_acq);
@@ -355,11 +353,10 @@ PLUGIN_API int  Prepare(void)
     // and to release them if reallocation is needed
     cl_int err = CL_SUCCESS;
 
-	// TODO: fix this so it doesn't take 6ms. Avoid writing to memory.
 	// Split kernel
 	glob.split_locWrkSize = 64;       glob.split_globWrkSize = (size_t)(ROUND_UP(glob.params.nlines*glob.params.emissions,glob.split_locWrkSize));
 	//glob.split_locWrkSize = 64;       glob.split_globWrkSize = (size_t)(ROUND_UP(glob.params.nlinesamples*4*glob.params.nlines*glob.params.emissions,glob.split_locWrkSize));
-	printf("split:            global work size: %d, local work size: %d\n",glob.split_globWrkSize,glob.split_locWrkSize);
+	//printf("split:            global work size: %d, local work size: %d\n",glob.split_globWrkSize,glob.split_locWrkSize);
 
 	// Standard deviation kernel
 	glob.std_dev_locWrkSize = 64;    glob.std_dev_globWrkSize = (size_t)(ROUND_UP(CEIL(Nsamples,8),glob.std_dev_locWrkSize));
@@ -387,7 +384,7 @@ PLUGIN_API int  Prepare(void)
 
 	// maxabsval2 kernel
 	glob.maxabsval2_locWrkSize = 1;  glob.maxabsval2_globWrkSize = (size_t)(ROUND_UP(1,glob.maxabsval2_locWrkSize));
-	printf("maxabsval2:       global work size: %d, local work size: %d\n",glob.maxabsval2_globWrkSize,glob.maxabsval2_locWrkSize);
+	//printf("maxabsval2:       global work size: %d, local work size: %d\n",glob.maxabsval2_globWrkSize,glob.maxabsval2_locWrkSize);
 
 	// Combine kernel
 	glob.combine_locWrkSize = 64;    glob.combine_globWrkSize = (size_t)(ROUND_UP(Nsamples,glob.combine_locWrkSize));
@@ -406,9 +403,9 @@ PLUGIN_API int  Prepare(void)
 	if (glob.std_dev           != 0) { clReleaseMemObject(glob.std_dev);           glob.std_dev = 0;           }
 	
 	// Buffer memory checking and handling for vel_est/arctan kernels
-	if (glob.temp0 != 0) { clReleaseMemObject(glob.temp0); glob.temp0 = 0; }
+	if (glob.temp0    != 0) { clReleaseMemObject(glob.temp0);    glob.temp0   = 0; }
 	if (glob.temp_re  != 0) { clReleaseMemObject(glob.temp_re);  glob.temp_re = 0;  }
-	if (glob.temp_im  != 0) { clReleaseMemObject(glob.temp_im);  glob.temp_im= 0;  }
+	if (glob.temp_im  != 0) { clReleaseMemObject(glob.temp_im);  glob.temp_im = 0;  }
 	
 	// Buffer memory checking and handling for to_vel_est/to_arctan kernels
 	if(glob.to_vel_est_sum12_re_im != 0){ clReleaseMemObject(glob.to_vel_est_sum12_re_im); glob.to_vel_est_sum12_re_im = 0; }
@@ -433,7 +430,7 @@ PLUGIN_API int  Prepare(void)
 	glob.R  = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.params.nlinesamples*glob.params.nlines*glob.params.emissions*sizeof(cl_float2), NULL, &err); 
 
 	// Buffer creation for std deviation kernel
-	glob.std_dev_sum1_real   = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.params.nlinesamples*glob.params.nlines*sizeof(float), NULL, &err);  //could pack as float2
+	glob.std_dev_sum1_real   = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.params.nlinesamples*glob.params.nlines*sizeof(float), NULL, &err);
 	glob.std_dev_sum1_imag   = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.params.nlinesamples*glob.params.nlines*sizeof(float), NULL, &err); 
 	glob.std_dev_sum2        = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, glob.params.nlinesamples*glob.params.nlines*sizeof(float), NULL, &err); 
 	glob.std_dev             = clCreateBuffer(glob.ctx, CL_MEM_READ_WRITE, sizeof(float), NULL, &err); 
@@ -611,14 +608,15 @@ PLUGIN_API int ProcessCLIO(cl_mem* inbuf, size_t numin, cl_mem* outbuf, size_t n
 	err = clEnqueueNDRangeKernel(clqueue, glob.maxabsval2_kernel,    1, NULL, &glob.maxabsval2_globWrkSize,    &glob.maxabsval2_locWrkSize,    1, &glob.event7, &glob.event8);
 	if (err != CL_SUCCESS)return err;
 	//printf("after 9\n");
-
+	
 	// Combine kernel arguments
 	err  = clSetKernelArg(glob.combine_kernel,   0, sizeof(cl_mem), &glob.outbufZ);
 	err |= clSetKernelArg(glob.combine_kernel,   1, sizeof(cl_mem), &glob.outbufX);
 	err |= clSetKernelArg(glob.combine_kernel,   2, sizeof(cl_mem), &glob.maximum);	// derived parameter
-	err |= clSetKernelArg(glob.combine_kernel,   3, sizeof(cl_int), &Nsamples);		// derived parameter
-	err |= clSetKernelArg(glob.combine_kernel,   4, sizeof(cl_mem), &outbuf[0]);
-	err |= clSetKernelArg(glob.combine_kernel,   5, sizeof(cl_mem), &outbuf[1]);
+	err |= clSetKernelArg(glob.combine_kernel,   3, sizeof(cl_float), &scale);		// derived parameter
+	err |= clSetKernelArg(glob.combine_kernel,   4, sizeof(cl_int), &Nsamples);		// derived parameter
+	err |= clSetKernelArg(glob.combine_kernel,   5, sizeof(cl_mem), &outbuf[0]);
+	err |= clSetKernelArg(glob.combine_kernel,   6, sizeof(cl_mem), &outbuf[1]);
 	if (err != CL_SUCCESS)return err;
 	err = clEnqueueNDRangeKernel(clqueue, glob.combine_kernel,    1, NULL, &glob.combine_globWrkSize,    &glob.combine_locWrkSize,    1, &glob.event8, outEv);
 	if (err != CL_SUCCESS)return err;

@@ -17,10 +17,8 @@ __kernel void split(__global short2* inbuf,
 					__global float2* L,
 					__global float2* R,
 					__const  int     N) {
- 	// unwrap single inbuf into 6 cl_mem buffers
-	// assume inbuf will have 'dimensions' in this order [real/imag, line samples, position (Z1/Z2/L/R), lines, shots, frames]
-	// each axial line has interleaved I and Q (real and imaginary) parts of the samples
-	// the axial lines are then packed with interleaved Center, Center, Left and Right locations in chronological order of transmission
+ 	// unwrap single inbuf into separate buffers
+	// assume inbuf will have 'dimensions' in this order [real/imag, line samples, position (Z1/Z2/L/R), lines, emission shots, frames]
 	size_t local_size = get_local_size(0); // how big is this group? 64
 	size_t group_id =  get_group_id(0); // which group number is this?
 	size_t local_id = get_local_id(0); // where am i in this group of 64
@@ -60,9 +58,9 @@ __kernel void split(__global short2* inbuf,
 		for(i=0;i<nlinesamples;i++){
 			Z[offset+i]  = convert_float2(inbuf[offset*(4) + i]);
 		}
-		for(i=0;i<nlinesamples;i++){
-			Z2[offset+i] = convert_float2(inbuf[offset*(4) + (nlinesamples) + i]);
-		}
+		//for(i=0;i<nlinesamples;i++){
+		//	Z2[offset+i] = convert_float2(inbuf[offset*(4) + (nlinesamples) + i]);
+		//}
 		for(i=0;i<nlinesamples;i++){
 			L[offset+i]  = convert_float2(inbuf[offset*(4) + (2*nlinesamples) + i]);
 		}
@@ -84,7 +82,7 @@ __kernel void split(__global short2* inbuf,
  *	@param result Final result - standard deviation of Nsamples
 */
 __kernel void std_dev(__global float8* data, 
-					  __global float*  global_sum1_real, // could be float2 
+					  __global float*  global_sum1_real,
 					  __global float*  global_sum1_imag,
 					  __global float*  global_sum2, 
 					    const  int     N, 
@@ -96,7 +94,7 @@ __kernel void std_dev(__global float8* data,
 	float4 sum_vector_real, sum_vector_imag;
 	size_t global_addr = get_global_id(0)*2;
 	size_t local_id = get_local_id(0);
-	__local float local_sum1_real[64]; //could be float2
+	__local float local_sum1_real[64];
 	__local float local_sum1_imag[64];
 	__local float local_sum2[64];
 
@@ -169,7 +167,7 @@ __kernel void std_dev(__global float8* data,
  *	@param std_dev_global INPUT Standard deviation in first Nsamples, calculated by std_dev kernel
  */
 __kernel void velocity_est( __global float2* data,
-							__global float* global_temp_re, // could be float2
+							__global float* global_temp_re,
 							__global float* global_temp_im,
 							  const  int    emissions,
 							  const  int    Nsamples,
@@ -208,12 +206,14 @@ __kernel void velocity_est( __global float2* data,
 	// Subtract the mean (through the emission dimension) from the data
 	for(i=0;i<emissions-1;i++){
 		float2 tmpdata  = data[global_id+Nsamples*i];
-		array_re[0] = tmpdata.x - avg_re;
-		array_im[0] = tmpdata.y - avg_im;
+		// FOR NOW, OMIT ECHO CANCELING
+		array_re[0] = tmpdata.x; //- avg_re;
+		array_im[0] = tmpdata.y; //- avg_im;
 	
 		float2 tmpdata1  = data[global_id+Nsamples*(i+1)];
-		array_re[1] = tmpdata1.x - avg_re;
-		array_im[1] = tmpdata1.y - avg_im;
+		// FOR NOW, OMIT ECHO CANCELING
+		array_re[1] = tmpdata1.x; //- avg_re;
+		array_im[1] = tmpdata1.y; //- avg_im;
 	
 		// autocorrelation sum
 		sum_re += array_re[0] * array_re[1] - (-array_im[0]) * array_im[1];
@@ -308,10 +308,11 @@ __kernel void to_velocity_est(__global float2* dataL,
 		float2 tmpL = dataL[global_id+Nsamples*i];
 		float2 tmpR = dataR[global_id+Nsamples*i];
 
-		r_sq.x  = tmpL.x - avgL.x;
-		r_sqh.x = tmpL.y - avgL.y;
-		r_sq.y  = tmpR.x - avgR.x;
-		r_sqh.y = tmpR.y - avgR.y;
+		// FOR NOW OMIT ECHO CANCELING
+		r_sq.x  = tmpL.x;// - avgL.x;
+		r_sqh.x = tmpL.y;// - avgL.y;
+		r_sq.y  = tmpR.x;// - avgR.x;
+		r_sqh.y = tmpR.y;// - avgR.y;
 
 		//%Create r1 and r2 according to [1]
 		//r1 = r_sq + j*r_sqh;
@@ -329,11 +330,12 @@ __kernel void to_velocity_est(__global float2* dataL,
 		//reuse these local vars for storage of 'i+lag_TO' sample
 		tmpL = dataL[global_id+Nsamples*(i+lag_TO)];
 		tmpR = dataR[global_id+Nsamples*(i+lag_TO)];
-
-		r_sq.x  = tmpL.x - avgL.x;
-		r_sqh.x = tmpL.y - avgL.y;
-		r_sq.y  = tmpR.x - avgR.x;
-		r_sqh.y = tmpR.y - avgR.y;
+		
+		// FOR NOW OMIT ECHO CANCELING
+		r_sq.x  = tmpL.x;// - avgL.x;
+		r_sqh.x = tmpL.y;// - avgL.y;
+		r_sq.y  = tmpR.x;// - avgR.x;
+		r_sqh.y = tmpR.y;// - avgR.y;
 
 		r1_TO.x = r_sq.x - r_sqh.y;
 		r1_TO.y = r_sq.y + r_sqh.x;
@@ -447,6 +449,7 @@ __kernel void maxabsval(__global float* buffer,
  * This kernel finds the largest value in a 2 buffers
  * This is the second stage, loop across first stage results
  */
+// ASK LEE IF THERE IS A MORE EFFICIENT SECOND STAGE HERE
 __kernel void maxabsval2(__global float* result1,
 						 __global float* result2,
 						 __const  int    N,
@@ -462,6 +465,7 @@ __kernel void maxabsval2(__global float* result1,
 /**	
  *	@param floatbufZ INPUT OpenCL buffer containing final velocity estimates for Z
  *	@param floatbufX INPUT OpenCL buffer containing final velocity estimates for X
+ *	@param maximum
  *	@param scale 
  *	@param Nsamples
  *	@param outbufZ OUTPUT OpenCL buffer containing velocity estimates
@@ -470,13 +474,15 @@ __kernel void maxabsval2(__global float* result1,
 __kernel void combine(__global float* floatbufZ,
 					  __global float* floatbufX,
 					  __global float* maximum,
+						const  float  scale,
 					    const  int    Nsamples,
 				      __global char*  outbufZ,
 					  __global char*  outbufX) {
 	size_t local_size = get_local_size(0), group_id = get_group_id(0),
 		   local_id   = get_local_id(0),   global_id = get_global_id(0);
-	//const float a = 127.0*2./(3.1415927*scale);
-	const float a = 127.0/maximum[0];
+	const float a = 127.0*2./(3.1415927*scale);
+	// FOR NOW, OMIT SCALING BY MAX
+	//const float a = 127.0/maximum[0];
 
 	if (global_id < Nsamples){
 		// for the given point, normalize and copy the sample to the output buffer

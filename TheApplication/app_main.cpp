@@ -232,26 +232,26 @@ int main(int argc, char *argv[])
 	
 	/*
 	// Parameter values in JBOs ProFocus test dataset
-	intParams[ind_emissions]     = 32; //meas.CFM.N_emis
-	intParams[ind_nlines]        = 8;  //preview_image.no_lines/3
-	intParams[ind_nlinesamples]  = 1024; //size(samples,1)
-	intParams[ind_numb_avg]      = 1; // not sampled at 35 MHz... only 1024 samples for 6 cm... 8/meas.CFM.f0*sarus_sys.rcv_fs
+	intParams[ind_emissions]     = 16; //meas.CFM.N_emis
+	intParams[ind_nlines]        = 56;  //preview_image.no_lines/3
+	intParams[ind_nlinesamples]  = 208; //size(samples,1)
+	intParams[ind_numb_avg]      = 6; // not sampled at 35 MHz... only 1024 samples for 6 cm... 8/meas.CFM.f0*sarus_sys.rcv_fs
 	intParams[ind_avg_offset]    = 1;
 	intParams[ind_lag_axial]     = 1;
 	intParams[ind_lag_TO]        = 2;
 	intParams[ind_lag_acq]       = 1;
 	numIntParams                 = 8; //IntParamCount;
 	
-	floatParams[ind_fs]	      = 35000000;
-	floatParams[ind_f0]       =  3000000;
-	floatParams[ind_c]        =     1482;
-	floatParams[ind_fprf]     =       98.6842;
-	floatParams[ind_depth]    = static_cast<float>(0.035);   // par.sys.depth for analysis
-	floatParams[ind_lambda_X] = static_cast<float>(0.0032); // transverse wavelength  par.TO.lambda_zx
+	floatParams[ind_fs]	      = 7500000;
+	floatParams[ind_f0]       = 5000000;
+	floatParams[ind_c]        =    1540;
+	floatParams[ind_fprf]     =      3106;
+	floatParams[ind_depth]    = static_cast<float>(0.02);   // par.sys.depth for analysis
+	floatParams[ind_lambda_X] = static_cast<float>(0.0022); // transverse wavelength  par.TO.lambda_zx
 	numFloatParams            = 6; //FloatParamCount;
 	*/
 
-	/**/
+	
 	// Parameter values in one file from MJPs test dataset
 	intParams[ind_emissions]     = 32;
 	intParams[ind_nlines]        = 75;
@@ -270,28 +270,7 @@ int main(int argc, char *argv[])
 	floatParams[ind_depth]    = static_cast<float>(0.03);   // 3cm focal depth
 	floatParams[ind_lambda_X] = static_cast<float>(0.0033); // 3.3 mm transverse wavelength  lambda_zx: 0.0033
 	numFloatParams            = 6; //FloatParamCount;
-	/**/
-
-	/*
-	// Parameter values in MJPs test dataset
-	intParams[ind_emissions]     = 32;
-	intParams[ind_nlines]        = 750;
-	intParams[ind_nlinesamples]  = 1136;
-	intParams[ind_numb_avg]      = 40;
-	intParams[ind_avg_offset]    = 1;
-	intParams[ind_lag_axial]     = 1;
-	intParams[ind_lag_TO]        = 2;
-	intParams[ind_lag_acq]       = 1;
-	numIntParams                 = 8; //IntParamCount;
 	
-	floatParams[ind_fs]	      = 17500000;
-	floatParams[ind_f0]       =  3500000;
-	floatParams[ind_c]        =     1540;
-	floatParams[ind_fprf]     =     2400;
-	floatParams[ind_depth]    = static_cast<float>(0.03);   // 3cm focal depth
-	floatParams[ind_lambda_X] = static_cast<float>(0.0033); // 3.3 mm transverse wavelength  lambda_zx: 0.0033
-	numFloatParams            = 6; //FloatParamCount;
-	*/
 
 	// Step 03: Create OpenCL Context
     context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
