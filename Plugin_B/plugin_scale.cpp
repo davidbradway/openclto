@@ -197,8 +197,8 @@ PLUGIN_API void  GetPluginInfo(PluginInfo* info)
     info->UseOpenCL = 1;
 	info->InCLMem = 1;  //1 or 0
     info->OutCLMem = 1; //1 or 0
-    info->NumInBuffers = 1;
-    info->NumOutBuffers = 2;
+	info->NumInBuffers = 1;
+	info->NumOutBuffers = 2;
 }
 
 /// <summary> Creates OpenCL program and initializes important OpenCL objects.
@@ -483,11 +483,11 @@ PLUGIN_API int  Prepare(void)
 /// </summary>
 PLUGIN_API int  GetOutBufSize(BuffSize* buf, int bufnum)
 {
-	glob.outSize[bufnum].sampleType = SAMPLE_FORMAT_INT8;
+	glob.outSize[bufnum].sampleType = SAMPLE_FORMAT_UINT8;
 	glob.outSize[bufnum].width      = glob.params.nlinesamples;
 	glob.outSize[bufnum].height     = glob.params.nlines;
 	glob.outSize[bufnum].depth      = 1;
-	glob.outSize[bufnum].widthLen   = glob.outSize[bufnum].width    * sizeof(signed char);
+	glob.outSize[bufnum].widthLen   = glob.outSize[bufnum].width    * sizeof(unsigned char);
 	glob.outSize[bufnum].heightLen  = glob.outSize[bufnum].widthLen * glob.outSize[bufnum].height;
 	glob.outSize[bufnum].depthLen   = glob.outSize[bufnum].depth    * glob.outSize[bufnum].heightLen;
 	*buf = glob.outSize[bufnum];

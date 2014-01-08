@@ -37,13 +37,12 @@ __kernel void split(__global short2* inbuf,
 	// in parallel reduction, how many threads are used?
 	//
 	// OR just index into the inbuf in the right place later in the program
-	// and figure out integer math rather than converting to floats?
-	//
+	// and figure out integer math rather than converting to floats?	
 	*/
 	// make a kernel that has a work item for each of nlinesamples
 	// global_id is the sample in depth
 	if (global_id < nlinesamples) {
-		// in each thread, loop across interleave=Z/Z2/L/R*locations, emissions, latgroups=nlines/interleave
+		// in each thread, loop across [interleave=Z/Z2/L/R*locations], [emissions], [latgroups=nlines/interleave]
 		// reorder so emissions is in last dimension
 		// want result in this order: locations, =nlines/interleave, emissions, 
 		for(k=0;k<latgroups;k++){ //lateral group counter: 0-24 or 0-6
@@ -221,14 +220,14 @@ __kernel void velocity_est( __global float2* data,
 	// Subtract the mean (through the emission dimension) from the data
 	for(i=0;i<emissions-1;i++){
 		float2 tmpdata  = data[global_id+Nsamples*i];
-		// FOR NOW, OMIT ECHO CANCELING
-		array_re[0] = tmpdata.x; //- avg_re;
-		array_im[0] = tmpdata.y; //- avg_im;
+		// OMIT ECHO CANCELING?
+		array_re[0] = tmpdata.x - avg_re;
+		array_im[0] = tmpdata.y - avg_im;
 	
 		float2 tmpdata1  = data[global_id+Nsamples*(i+1)];
-		// FOR NOW, OMIT ECHO CANCELING
-		array_re[1] = tmpdata1.x; //- avg_re;
-		array_im[1] = tmpdata1.y; //- avg_im;
+		// OMIT ECHO CANCELING?
+		array_re[1] = tmpdata1.x - avg_re;
+		array_im[1] = tmpdata1.y - avg_im;
 	
 		// autocorrelation sum
 		sum_re += array_re[0] * array_re[1] - (-array_im[0]) * array_im[1];
@@ -323,11 +322,11 @@ __kernel void to_velocity_est(__global float2* dataL,
 		float2 tmpL = dataL[global_id+Nsamples*i];
 		float2 tmpR = dataR[global_id+Nsamples*i];
 
-		// FOR NOW OMIT ECHO CANCELING
-		r_sq.x  = tmpL.x;// - avgL.x;
-		r_sqh.x = tmpL.y;// - avgL.y;
-		r_sq.y  = tmpR.x;// - avgR.x;
-		r_sqh.y = tmpR.y;// - avgR.y;
+		// OMIT ECHO CANCELING?
+		r_sq.x  = tmpL.x - avgL.x;
+		r_sqh.x = tmpL.y - avgL.y;
+		r_sq.y  = tmpR.x - avgR.x;
+		r_sqh.y = tmpR.y - avgR.y;
 
 		//%Create r1 and r2 according to [1]
 		//r1 = r_sq + j*r_sqh;
@@ -346,11 +345,11 @@ __kernel void to_velocity_est(__global float2* dataL,
 		tmpL = dataL[global_id+Nsamples*(i+lag_TO)];
 		tmpR = dataR[global_id+Nsamples*(i+lag_TO)];
 		
-		// FOR NOW OMIT ECHO CANCELING
-		r_sq.x  = tmpL.x;// - avgL.x;
-		r_sqh.x = tmpL.y;// - avgL.y;
-		r_sq.y  = tmpR.x;// - avgR.x;
-		r_sqh.y = tmpR.y;// - avgR.y;
+		// OMIT ECHO CANCELING?
+		r_sq.x  = tmpL.x - avgL.x;
+		r_sqh.x = tmpL.y - avgL.y;
+		r_sq.y  = tmpR.x - avgR.x;
+		r_sqh.y = tmpR.y - avgR.y;
 
 		r1_TO.x = r_sq.x - r_sqh.y;
 		r1_TO.y = r_sq.y + r_sqh.x;
@@ -491,17 +490,32 @@ __kernel void combine(__global float* floatbufZ,
 					  __global float* maximum,
 						const  float  scale,
 					    const  int    Nsamples,
-				      __global char*  outbufZ,
-					  __global char*  outbufX) {
+				      __global uchar*  outbufZ,
+					  __global uchar*  outbufX) {
 	size_t local_size = get_local_size(0), group_id = get_group_id(0),
 		   local_id   = get_local_id(0),   global_id = get_global_id(0);
-	const float a = 127.0*2./(3.1415927*scale);
-	// FOR NOW, OMIT SCALING BY MAX
-	//const float a = 127.0/maximum[0];
+	const float a = 1./(3.1415927*scale);
+	float temp;
+	// SCALING BY MAX?
+	//const float a = 1./maximum[0];
 
 	if (global_id < Nsamples){
 		// for the given point, normalize and copy the sample to the output buffer
-		outbufZ[global_id] = convert_char(a*floatbufZ[global_id]);
-		outbufX[global_id] = convert_char(a*floatbufX[global_id]);
+		temp =(-1*a*floatbufZ[global_id]+1.0)/2.0*255.0;
+		//if (temp > 255)
+		//{		
+		//	printf("ZY temp is going to be truncated %f\n", temp);
+		//}
+		outbufZ[global_id] = convert_uchar(temp);
+
+		temp =(a*floatbufX[global_id]+1.0)/2.0*255.0;
+		//if (temp > 255)
+		//{		
+		//	printf("X  temp is going to be truncated %f\n", temp);
+		//}
+		outbufX[global_id] = convert_uchar(temp);
+
+		//outbufX[global_id] = convert_uchar(global_id);
+		//outbufZ[global_id] = convert_uchar(global_id+1);
 	}
 }

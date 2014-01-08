@@ -21,8 +21,8 @@
 
 //CREATE MEMORY SPACE
 short  data[8*DATA_SIZE_IN]; //16-bit integer
-signed char resultsZ[DATA_SIZE_OUT]; //8-bit integer
-signed char resultsX[DATA_SIZE_OUT]; //8-bit integer
+unsigned char resultsZ[DATA_SIZE_OUT]; //8-bit integer
+unsigned char resultsX[DATA_SIZE_OUT]; //8-bit integer
 
 PluginApi api;
 //char dllpath[4096];
@@ -138,12 +138,12 @@ int load_data_file(short* data, const char *filename){
 }
 
 /// <summary> New Save OpenCL result to one file</summary>
-int save_data_file(signed char* outZ, signed char* outX, size_t estimates, const char *filename){
+int save_data_file(unsigned char* outZ, unsigned char* outX, size_t estimates, const char *filename){
 	size_t count1;
 	FILE *ptr_myfile=fopen(filename,"wb");
 	if (!ptr_myfile){ printf("Unable to open file!"); return -1; }
-	count1 = fwrite(outZ, sizeof(signed char), estimates, ptr_myfile);
-	count1 = fwrite(outX, sizeof(signed char), estimates, ptr_myfile);
+	count1 = fwrite(outZ, sizeof(unsigned char), estimates, ptr_myfile);
+	count1 = fwrite(outX, sizeof(unsigned char), estimates, ptr_myfile);
 	fclose(ptr_myfile);
 	if(count1 != estimates){printf("Size mismatch!"); printf("count1 = %d, estimates = %d\n",count1,estimates); return -2; }
 	return 0;
@@ -230,17 +230,16 @@ int main(int argc, char *argv[])
 	numFloatParams            = 6; //FloatParamCount;
 	*/
 	
-	/*
 	// Parameter values in JBOs ProFocus test dataset
 	intParams[ind_emissions]     = 16; //meas.CFM.N_emis
-	intParams[ind_nlines]        = 28;  // 4 * 7
+	intParams[ind_nlines]        = 28;  // (4)transmits * 7
 	intParams[ind_nlinesamples]  = 208; //size(samples,1)
 	intParams[ind_numb_avg]      = 6; // not sampled at 35 MHz... only 1024 samples for 6 cm... 8/meas.CFM.f0*sarus_sys.rcv_fs
 	intParams[ind_avg_offset]    = 1;
 	intParams[ind_lag_axial]     = 1;
 	intParams[ind_lag_TO]        = 2;
 	intParams[ind_lag_acq]       = 1;
-	intParams[ind_interleave]    = 16; // 4 * 4
+	intParams[ind_interleave]    = 16; // 4ZZLR * (4)transmits
 	numIntParams                 = 9; //IntParamCount;
 	
 	floatParams[ind_fs]	      = 7500000;
@@ -250,18 +249,18 @@ int main(int argc, char *argv[])
 	floatParams[ind_depth]    = static_cast<float>(0.02);   // par.sys.depth for analysis
 	floatParams[ind_lambda_X] = static_cast<float>(0.0022); // transverse wavelength  par.TO.lambda_zx
 	numFloatParams            = 6; //FloatParamCount;
-	*/
-		
+
+	/*		
 	// Parameter values in one file from MJPs test dataset
 	intParams[ind_emissions]     = 32;
-	intParams[ind_nlines]        = 75; // 3 * 25
+	intParams[ind_nlines]        = 75; // (3) * 25
 	intParams[ind_nlinesamples]  = 1136;
 	intParams[ind_numb_avg]      = 40;
 	intParams[ind_avg_offset]    = 1;
 	intParams[ind_lag_axial]     = 1;
 	intParams[ind_lag_TO]        = 2;
 	intParams[ind_lag_acq]       = 1;
-	intParams[ind_interleave]    = 12; // 4 * 3
+	intParams[ind_interleave]    = 12; // 4 * (3)
 	numIntParams                 = 9; //IntParamCount;
 	
 	floatParams[ind_fs]	      = 17500000;
@@ -271,7 +270,7 @@ int main(int argc, char *argv[])
 	floatParams[ind_depth]    = static_cast<float>(0.03);   // 3cm focal depth
 	floatParams[ind_lambda_X] = static_cast<float>(0.0033); // 3.3 mm transverse wavelength  lambda_zx: 0.0033
 	numFloatParams            = 6; //FloatParamCount;
-	
+	*/
 
 	// Step 03: Create OpenCL Context
     context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
@@ -330,8 +329,8 @@ int main(int argc, char *argv[])
 	// Step 05: Create memory buffer objects
     // Create the input and output arrays in device memory for our calculation
 	inbuf[0]  = clCreateBuffer(context, CL_MEM_READ_ONLY, 8*DATA_SIZE_IN *sizeof(short),       NULL, &err); checkError(err,"Create buffer failed1");
-	outbuf[0] = clCreateBuffer(context, CL_MEM_WRITE_ONLY,  DATA_SIZE_OUT*sizeof(signed char), NULL, &err); checkError(err,"Create buffer failed3");
-	outbuf[1] = clCreateBuffer(context, CL_MEM_WRITE_ONLY,  DATA_SIZE_OUT*sizeof(signed char), NULL, &err); checkError(err,"Create buffer failed4");
+	outbuf[0] = clCreateBuffer(context, CL_MEM_WRITE_ONLY,  DATA_SIZE_OUT*sizeof(unsigned char), NULL, &err); checkError(err,"Create buffer failed3");
+	outbuf[1] = clCreateBuffer(context, CL_MEM_WRITE_ONLY,  DATA_SIZE_OUT*sizeof(unsigned char), NULL, &err); checkError(err,"Create buffer failed4");
 
 	// Step 05: Create user event objects
 	cl_event evHost1 = clCreateUserEvent(context, NULL);    // TheApplication uses these events to enqueue operations
@@ -346,8 +345,8 @@ int main(int argc, char *argv[])
 	checkError(err,"Failed process CL I/O");
 	
 	// Step 12: Read (Transfer result) from the memory buffer
-	err = clEnqueueReadBuffer(commands, outbuf[0], CL_TRUE, 0, DATA_SIZE_OUT*sizeof(signed char), resultsZ, 1, &evDLL, NULL); checkError(err,"Failed to read output array 2!");
-	err = clEnqueueReadBuffer(commands, outbuf[1], CL_TRUE, 0, DATA_SIZE_OUT*sizeof(signed char), resultsX, 1, &evDLL, NULL); checkError(err,"Failed to read output array 3!");
+	err = clEnqueueReadBuffer(commands, outbuf[0], CL_TRUE, 0, DATA_SIZE_OUT*sizeof(unsigned char), resultsX, 1, &evDLL, NULL); checkError(err,"Failed to read output array x!");
+	err = clEnqueueReadBuffer(commands, outbuf[1], CL_TRUE, 0, DATA_SIZE_OUT*sizeof(unsigned char), resultsZ, 1, &evDLL, NULL); checkError(err,"Failed to read output array z!");
 	
 	// Step 13: Free objects
     api.Cleanup();
