@@ -494,7 +494,7 @@ __kernel void combine(__global float* floatbufZ,
 					  __global uchar*  outbufX) {
 	size_t local_size = get_local_size(0), group_id = get_group_id(0),
 		   local_id   = get_local_id(0),   global_id = get_global_id(0);
-	const float a = 1./(3.1415927*scale);
+	const float a = 1./(2.0*3.1415927*scale);
 	float temp;
 	// SCALING BY MAX?
 	//const float a = 1./maximum[0];
@@ -506,14 +506,14 @@ __kernel void combine(__global float* floatbufZ,
 		//{		
 		//	printf("ZY temp is going to be truncated %f\n", temp);
 		//}
-		outbufZ[global_id] = convert_uchar(temp);
+		outbufZ[global_id] = convert_uchar_sat_rte(temp);
 
 		temp =(a*floatbufX[global_id]+1.0)/2.0*255.0;
 		//if (temp > 255)
 		//{		
 		//	printf("X  temp is going to be truncated %f\n", temp);
 		//}
-		outbufX[global_id] = convert_uchar(temp);
+		outbufX[global_id] = convert_uchar_sat_rte(temp);
 
 		//outbufX[global_id] = convert_uchar(global_id);
 		//outbufZ[global_id] = convert_uchar(global_id+1);

@@ -1,6 +1,8 @@
 // TODO: these should be moved to into Int Parameter Array
-#define DATA_SIZE_IN (1136*75*32)
-#define DATA_SIZE_OUT (1136*75)
+//#define DATA_SIZE_IN (1136*75*32)
+//#define DATA_SIZE_OUT (1136*75)
+#define DATA_SIZE_IN (208*28*16)
+#define DATA_SIZE_OUT (208*28)
 
 /// <summary> Integer Parameter Array Enumerated Indices </summary>
 typedef enum IntParamIndex {

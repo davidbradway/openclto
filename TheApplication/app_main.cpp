@@ -280,11 +280,6 @@ int main(int argc, char *argv[])
     commands = clCreateCommandQueue(context, device_id, 0, &err);
 	checkError(err,"Failed to create a command queue!");
 
-	// Step 05: Load the data from file
-	const char  filename[] = "PF.bin";
-	err = load_data_file(data,filename);
-	checkError(err,"load data file failed");
-
 	// Step 06: Read kernel file
 	// PluginInfo tells us also if DLL uses OpenCL. We assume it does
     api.GetPluginInfo( &pluginInfo );   
@@ -336,6 +331,17 @@ int main(int argc, char *argv[])
 	cl_event evHost1 = clCreateUserEvent(context, NULL);    // TheApplication uses these events to enqueue operations
 	cl_event evDLL   = clCreateUserEvent(context, NULL);    // This event is returned by the DLL, and is used as a "done" flag
 	
+	int j;
+	for(j=1;j<=13;j++){
+
+	// Step 05: Load the data from file
+	char  filename[16];
+	sprintf(filename,"FromLive_%02d.bin",j);
+	printf("%s\n",filename);
+
+	err = load_data_file(data,filename);
+	checkError(err,"load data file failed");
+
 	// Step 05: Enqueue writing to the memory buffer
 	err = clEnqueueWriteBuffer(commands, inbuf[0], CL_FALSE, 0, 8*DATA_SIZE_IN*sizeof(short), data, 0, NULL, &evHost1); checkError(err,"Failed to write to source memory 1!");
 
@@ -348,21 +354,28 @@ int main(int argc, char *argv[])
 	err = clEnqueueReadBuffer(commands, outbuf[0], CL_TRUE, 0, DATA_SIZE_OUT*sizeof(unsigned char), resultsX, 1, &evDLL, NULL); checkError(err,"Failed to read output array x!");
 	err = clEnqueueReadBuffer(commands, outbuf[1], CL_TRUE, 0, DATA_SIZE_OUT*sizeof(unsigned char), resultsZ, 1, &evDLL, NULL); checkError(err,"Failed to read output array z!");
 	
+	//printf("Save the data to files!\n"); // Save the data to files!
+	// Step 05: Load the data from file
+	char  fileresults[16];
+	sprintf(fileresults,"results_%02d.bin",j);
+	printf("%s\n",fileresults);
+	err = save_data_file(resultsZ,resultsX,DATA_SIZE_OUT, fileresults ); checkError(err,"save data file failed");
+
+	}
+
 	// Step 13: Free objects
     api.Cleanup();
-
-	//printf("Save the data to files!\n"); // Save the data to files!
-	const char  fileresults[] =  "results.bin"; err = save_data_file(resultsZ,resultsX,DATA_SIZE_OUT, fileresults ); checkError(err,"save data file failed");
 
 	// Step 13: Free objects
     err = clReleaseEvent(evHost1);checkError(err,"Failed release of Event1");
 	err = clReleaseEvent(evDLL);checkError(err,"Failed release of Event2");
-	err = clReleaseCommandQueue(commands);checkError(err,"Failed release of command queue");
 	err = clReleaseContext(context);checkError(err,"Failed release of context");
 	err = clReleaseMemObject(inbuf[0]); checkError(err,"Failed release of memory1");
 	err = clReleaseMemObject(outbuf[0]); checkError(err,"Failed release of memory2");
 	err = clReleaseMemObject(outbuf[1]); checkError(err,"Failed release of memory3");
 	err = clReleaseEvent(evHost1); checkError(err,"Failed release of event1");
 	err = clReleaseEvent(evDLL);   checkError(err,"Failed release of eventDLL");
+	err = clReleaseCommandQueue(commands);checkError(err,"Failed release of command queue");
+
 	return 0;
 }
